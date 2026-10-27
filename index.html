@@ -93,6 +93,11 @@ main.desk{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18p
 .pad h2{font-size:19px;line-height:1.4;margin:6px 0 8px;text-wrap:balance}
 .label{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .brief{white-space:pre-wrap;font-size:14.5px;margin:4px 0 0}
+.times{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:-2px 0 6px}
+.times b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.when{font-variant-numeric:tabular-nums}
+.tokmsg{font-size:13px}
+.tokmsg.ok{color:var(--ok)} .tokmsg.bad{color:var(--bad)}
 .orig{font-size:13px;color:var(--muted);margin:4px 0 0}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin:10px 0 4px}
 .gallery a{display:block;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg);aspect-ratio:4/3;max-width:100%}
@@ -164,7 +169,8 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
     <div class="filters">
       <input type="search" id="q" placeholder="ค้นหาข่าว…" aria-label="ค้นหาข่าว">
       <select id="fStatus" aria-label="สถานะ"><option value="">ทุกสถานะ</option><option value="new">รอเขียน</option><option value="written">เขียนแล้ว</option><option value="posted">โพสต์แล้ว</option></select>
-      <select id="fOrigin" aria-label="แหล่ง"><option value="">ทุกแหล่ง</option><option value="x">X</option><option value="web">เว็บข่าว</option><option value="manual">เพิ่มเอง</option></select>
+      <select id="fOrigin" aria-label="แหล่ง"><option value="">ทุกแหล่ง</option><option value="x">X</option><option value="reddit">Reddit</option><option value="web">เว็บข่าว</option><option value="manual">เพิ่มเอง</option></select>
+      <select id="fSort" aria-label="เรียงตาม"><option value="fetched">ดึงมาล่าสุด</option><option value="posted">โพสต์ล่าสุด</option><option value="likes">ไลก์เยอะสุด</option></select>
     </div>
     <div class="chips" id="cats" style="margin-bottom:12px"></div>
     <div class="feed" id="feed"><div class="empty">กำลังโหลดข่าว…</div></div>
@@ -176,6 +182,7 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
     <div id="padBody" hidden>
       <div class="row"><span class="tag" id="pCat"></span><span class="pill" id="pStatus"></span><span class="hint" id="pSrc"></span></div>
       <h2 id="pTitle"></h2>
+      <div class="times" id="pTimes"></div>
       <div class="gallery" id="pImgs"></div>
       <div class="row" id="pImgTools" hidden><span class="hint" id="pImgCount"></span><button class="btn sm ghost" id="btnCopyImgs" type="button">คัดลอกลิงก์รูปทั้งหมด</button></div>
       <div class="label" style="margin-top:8px">สรุปข่าว</div>
@@ -217,10 +224,13 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
   <div class="dlg">
     <h2>เพิ่มข่าว</h2>
     <div class="box">
-      <h3>จากลิงก์โพสต์ X</h3>
-      <div class="field">วางลิงก์โพสต์ X ได้หลายลิงก์ (คนละบรรทัด) ระบบจะดึงข้อความ ยอดไลก์ และรูปให้
+      <h3>จากลิงก์โพสต์ X / Reddit</h3>
+      <div class="field">วางลิงก์โพสต์ได้หลายลิงก์ (คนละบรรทัด) ระบบจะดึงข้อความ ยอดไลก์ เวลาโพสต์ และรูปให้
         <textarea id="xUrls" placeholder="https://x.com/username/status/1234567890"></textarea>
       </div>
+      <details><summary class="hint" style="cursor:pointer">ข้อมูลข่าวแบบ JSON (สำหรับงานอัตโนมัติ เช่นข่าว Reddit)</summary>
+        <div class="field" style="margin-top:6px"><textarea id="itemsJson" placeholder='[{"title":"…","url":"https://…","summary":"…","images":["https://…"],"source":"Reddit r/cosplay","likes":1234,"publishedAt":"2026-10-27T10:00:00Z"}]'></textarea></div>
+      </details>
       <div class="row"><button class="btn primary" type="button" id="btnXSend">ส่งไปดึงข่าว</button><span class="hint" id="xState">ใช้เวลาราว 1–2 นาที ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน</span></div>
     </div>
     <form class="box" id="fManual">
@@ -250,7 +260,8 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
     <div class="box">
       <h3>GitHub (ปุ่มอัปเดต ตั้งเวลา หยุด และดึงโพสต์ X)</h3>
       <div class="field">Repo<input id="sRepo" placeholder="owner/repo"></div>
-      <div class="field">Personal access token<input id="sGh" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+      <div class="field">Personal access token (ขึ้นต้นด้วย github_pat_ หรือ ghp_)<input id="sGh" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+      <div class="row"><button class="btn sm" type="button" id="btnTestGh">ทดสอบ token</button><span class="tokmsg" id="ghMsg"></span></div>
       <ol class="steps">
         <li>เปิด <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
         <li>Repository access: เลือกเฉพาะ repo นี้</li>
@@ -352,6 +363,11 @@ function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&l
 function hash(s){ let h=2166136261; for(const c of s){ h^=c.codePointAt(0); h=Math.imul(h,16777619); } return (h>>>0).toString(36); }
 function ago(ms){ if(!ms) return ""; const m=Math.round((Date.now()-ms)/60000); if(m<1) return "เมื่อกี้"; if(m<60) return m+" นาทีที่แล้ว"; const h=Math.round(m/60); if(h<48) return h+" ชม.ที่แล้ว"; return Math.round(h/24)+" วันที่แล้ว"; }
 function fmtTime(iso){ try{ return new Date(iso).toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Bangkok"}); }catch{ return iso; } }
+function toMs(v){ if(!v) return 0; if(typeof v==="number") return v; const t=Date.parse(v); return isNaN(t)?0:t; }
+function fmtShort(v){ const ms=toMs(v); if(!ms) return "—"; try{ return new Date(ms).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Bangkok"})+" น."; }catch{ return ""; } }
+const postedAt = n => toMs(n.publishedAt);
+const fetchedAt = n => toMs(n.fetchedAt||n.createdAt);
+const originOf = n => n.origin==="x"?"x":(/^Reddit/i.test(n.source||"")||/reddit\.com/.test(n.url||"")?"reddit":(n.origin||"web"));
 const STATUS_TH={new:"รอเขียน",written:"เขียนแล้ว",posted:"โพสต์แล้ว"};
 const st = id => state[id] || {};
 function setState(id, patch){ state[id]={...st(id),...patch,updatedAt:Date.now()}; ls.set("od.state",state); }
@@ -394,13 +410,16 @@ function render(){
   $("#sNew").textContent=news.filter(n=>statusOf(n)==="new").length;
   $("#sWritten").textContent=news.filter(n=>statusOf(n)==="written").length;
   $("#sPosted").textContent=news.filter(n=>statusOf(n)==="posted").length;
-  const list=news.filter(n=>(!filterCat||n.category===filterCat)&&(!fs||statusOf(n)===fs)&&(!fo||(n.origin||"web")===fo)&&(!q||`${n.title} ${n.summary} ${n.source} ${n.titleOriginal||""}`.toLowerCase().includes(q)));
+  const sort=$("#fSort").value;
+  const list=news.filter(n=>(!filterCat||n.category===filterCat)&&(!fs||statusOf(n)===fs)&&(!fo||originOf(n)===fo)&&(!q||`${n.title} ${n.summary} ${n.source} ${n.titleOriginal||""}`.toLowerCase().includes(q)));
+  const key = sort==="posted" ? (n=>postedAt(n)||fetchedAt(n)) : sort==="likes" ? (n=>+n.likes||0) : (n=>fetchedAt(n));
+  list.sort((a,b)=>key(b)-key(a) || fetchedAt(b)-fetchedAt(a));
   const feed=$("#feed");
   if(!news.length) feed.innerHTML=`<div class="empty">ยังไม่มีข่าว<br><span class="hint">กด “อัปเดตข่าวตอนนี้” หรือ “+ เพิ่มข่าว”</span></div>`;
   else if(!list.length) feed.innerHTML=`<div class="empty">ไม่มีข่าวที่ตรงกับตัวกรอง</div>`;
   else feed.innerHTML=list.slice(0,shown).map(n=>{ const s=statusOf(n); return `<button type="button" class="item" data-id="${n.id}" aria-current="${n.id===selId}">
       ${thumbHtml(n)}
-      <span style="min-width:0"><h3>${esc(n.title)}</h3><span class="meta"><span class="tag">${esc(n.category||"Viral")}</span><span class="pill ${s}">${STATUS_TH[s]}</span><span>${esc(n.source||"")}</span>${n.likes?`<span>· ♥ ${Number(n.likes).toLocaleString()}</span>`:""}<span>· ${ago(n.createdAt||n.publishedAt)}</span></span></span>
+      <span style="min-width:0"><h3>${esc(n.title)}</h3><span class="meta"><span class="tag">${esc(n.category||"Viral")}</span><span class="pill ${s}">${STATUS_TH[s]}</span><span>${esc(n.source||"")}</span>${n.likes?`<span>· ♥ ${Number(n.likes).toLocaleString()}</span>`:""}</span><span class="meta when" style="margin-top:2px">${postedAt(n)?`<span title="เวลาที่ต้นทางโพสต์">โพสต์ ${fmtShort(postedAt(n))}</span><span>·</span>`:""}<span title="เวลาที่ระบบดึงมา">ดึงมา ${fmtShort(fetchedAt(n))}</span></span></span>
     </button>`; }).join("");
   $("#moreWrap").hidden=list.length<=shown;
   renderPad();
@@ -413,8 +432,9 @@ function renderPad(){
   const s=statusOf(n);
   $("#pCat").textContent=n.category||"Viral";
   const ps=$("#pStatus"); ps.className="pill "+s; ps.textContent=STATUS_TH[s];
-  $("#pSrc").textContent=[n.source, n.likes?`♥ ${Number(n.likes).toLocaleString()}`:"", n.publishedAt?fmtTime(n.publishedAt):""].filter(Boolean).join(" · ");
+  $("#pSrc").textContent=[n.source, n.likes?`♥ ${Number(n.likes).toLocaleString()}`:""].filter(Boolean).join(" · ");
   $("#pTitle").textContent=n.title;
+  $("#pTimes").innerHTML=`<span>โพสต์เมื่อ <b>${postedAt(n)?esc(fmtTime(postedAt(n))):"ไม่ทราบ"}</b>${postedAt(n)?` (${ago(postedAt(n))})`:""}</span><span>ดึงมาเมื่อ <b>${esc(fmtTime(fetchedAt(n)))}</b> (${ago(fetchedAt(n))})</span>`;
   $("#pSummary").textContent=n.summary||"—";
   const o=$("#pOrig"); o.hidden=!n.titleOriginal; o.textContent=n.titleOriginal?("ต้นฉบับ: "+n.titleOriginal):"";
   $("#pRaw").textContent=n.details||"(ไม่มีเนื้อหาเต็ม)";
@@ -432,15 +452,16 @@ function updateCount(){ $("#count").textContent=$("#article").value.length+" ต
 /* ---------- GitHub ---------- */
 async function gh(path, opts={}){
   const headers={Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"};
-  if(settings.gh) headers.Authorization="Bearer "+settings.gh;
+  if(settings.gh && !opts.noAuth) headers.Authorization="Bearer "+settings.gh;
   if(opts.body) headers["Content-Type"]="application/json";
-  const r=await fetch(GH+path,{...opts,headers});
+  const {noAuth, ...fo}=opts;
+  const r=await fetch(GH+path,{...fo,headers});
   if(!r.ok){ let m=""; try{ m=(await r.json()).message; }catch{} const e=new Error(m||("HTTP "+r.status)); e.status=r.status; throw e; }
   return r.status===204?null:r.json();
 }
 function ghErr(e){
   if(!settings.gh) return "ต้องใส่ GitHub token ในหน้าตั้งค่าก่อน";
-  if(e.status===401) return "GitHub token ไม่ถูกต้องหรือหมดอายุ";
+  if(e.status===401) return "GitHub token ไม่ถูกต้องหรือหมดอายุ — วาง token ที่ขึ้นต้นด้วย github_pat_ ใหม่ในหน้าตั้งค่า";
   if(e.status===403) return "token ไม่มีสิทธิ์พอ (ต้องมี Actions / Contents / Workflows แบบ Read and write)";
   if(e.status===404) return "ไม่พบ repo หรือ workflow — ตรวจชื่อ repo ในหน้าตั้งค่า";
   if(e.status===422) return "GitHub ไม่รับคำสั่ง ("+e.message+")";
@@ -450,10 +471,16 @@ function cronToLocal(c){ const m=c.match(/^(\d+)\s+(\d+)\s/); if(!m) return null
 async function loadStatus(){
   if(!repo()){ $("#autoState").textContent="ไม่ทราบ repo — ตั้งค่าในหน้าตั้งค่า"; return; }
   try{
+    let noAuth=false;
+    if(settings.gh){
+      try{ await gh(`/repos/${repo()}`); banner(""); }
+      catch(e){ if(e.status===401){ noAuth=true; banner("GitHub token ที่บันทึกไว้ใช้ไม่ได้ (Bad credentials) — กด “ตั้งค่า” แล้ววาง token ที่ขึ้นต้นด้วย github_pat_ ใหม่ ปุ่มอัปเดต/ตั้งเวลา/หยุด จะใช้ได้หลังแก้"); } }
+    }
+    const o={noAuth};
     const [w, runs, file]=await Promise.all([
-      gh(`/repos/${repo()}/actions/workflows/${WF}`),
-      gh(`/repos/${repo()}/actions/workflows/${WF}/runs?per_page=1`),
-      gh(`/repos/${repo()}/contents/.github/workflows/${WF}?ref=main`).catch(()=>null)
+      gh(`/repos/${repo()}/actions/workflows/${WF}`,o),
+      gh(`/repos/${repo()}/actions/workflows/${WF}/runs?per_page=1`,o),
+      gh(`/repos/${repo()}/contents/.github/workflows/${WF}?ref=main`,o).catch(()=>null)
     ]);
     wf={...w, file};
     const on=w.state==="active";
@@ -473,8 +500,9 @@ function showRun(r){
     :`รอบล่าสุด (${how}): <b style="color:var(--${r.conclusion==="success"?"ok":"bad"})">${r.conclusion==="success"?"สำเร็จ":"ไม่สำเร็จ"}</b> · ${ago(Date.parse(r.updated_at))} <a href="${esc(r.html_url)}" target="_blank" rel="noopener">รายละเอียด</a>`;
   return live;
 }
-async function dispatch(xUrls){
-  await gh(`/repos/${repo()}/actions/workflows/${WF}/dispatches`,{method:"POST",body:JSON.stringify({ref:"main",inputs:{x_urls:xUrls||""}})});
+async function dispatch(xUrls, itemsJson){
+  const inputs={x_urls:xUrls||""}; if(itemsJson) inputs.items_json=itemsJson;
+  await gh(`/repos/${repo()}/actions/workflows/${WF}/dispatches`,{method:"POST",body:JSON.stringify({ref:"main",inputs})});
   startPolling();
 }
 function startPolling(){
@@ -504,7 +532,7 @@ function brief(n){
 หมวด: ${n.category}
 แหล่งที่มา: ${n.source||"-"}
 ลิงก์: ${n.url||"-"}
-${n.likes?`ยอดไลก์: ${n.likes}\n`:""}${(n.images||[]).length?`มีรูปประกอบ ${n.images.length} รูป\n`:""}สรุป: ${n.summary||"-"}
+${postedAt(n)?`โพสต์เมื่อ: ${fmtTime(postedAt(n))} (เวลาไทย)\n`:""}${n.likes?`ยอดไลก์: ${n.likes}\n`:""}${(n.images||[]).length?`มีรูปประกอบ ${n.images.length} รูป\n`:""}สรุป: ${n.summary||"-"}
 ข้อมูลต้นทาง:
 ${(n.details||"-").slice(0,20000)}`;
 }
@@ -601,7 +629,7 @@ async function loadModels(){
 /* ---------- events ---------- */
 $("#feed").addEventListener("click",e=>{ const b=e.target.closest(".item"); if(!b) return; selId=b.dataset.id; render(); if(innerWidth<=920) $("#pad").scrollIntoView({behavior:"smooth",block:"start"}); });
 $("#cats").addEventListener("click",e=>{ const b=e.target.closest(".chip"); if(!b) return; filterCat=b.dataset.cat; shown=PAGE; renderCats(); render(); });
-["#q","#fStatus","#fOrigin"].forEach(s=>$(s).addEventListener("input",()=>{ shown=PAGE; render(); }));
+["#q","#fStatus","#fOrigin","#fSort"].forEach(s=>$(s).addEventListener("input",()=>{ shown=PAGE; render(); }));
 $("#btnMore").onclick=()=>{ shown+=PAGE; render(); };
 
 $("#btnUpdate").onclick=async()=>{
@@ -632,11 +660,17 @@ $("#btnSaveTime").onclick=async()=>{
 $("#btnAdd").onclick=()=>{ $("#xState").textContent=settings.gh?"ใช้เวลาราว 1–2 นาที":"ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; $("#dAdd").showModal(); };
 $("#btnAddClose").onclick=()=>$("#dAdd").close();
 $("#btnXSend").onclick=async()=>{
-  const urls=[...new Set(($("#xUrls").value.match(/https?:\/\/(?:www\.)?(?:x|twitter)\.com\/[^\s/]+\/status\/\d+/g)||[]))];
-  if(!urls.length){ $("#xState").textContent="ไม่พบลิงก์โพสต์ X ที่ถูกต้อง"; return; }
+  const urls=[...new Set(($("#xUrls").value.match(/https?:\/\/(?:www\.|old\.)?(?:(?:x|twitter)\.com\/[^\s/]+\/status\/\d+|reddit\.com\/r\/[^\s/]+\/comments\/[^\s]+)/g)||[]).map(u=>u.replace(/[)\]>,.]+$/,"")))];
+  let items="", nItems=0;
+  const raw=$("#itemsJson").value.trim();
+  if(raw){
+    try{ const arr=JSON.parse(raw); if(!Array.isArray(arr)) throw 0; const slim=arr.filter(x=>x&&x.title&&x.url).slice(0,40).map(x=>({title:String(x.title).slice(0,200),url:x.url,summary:String(x.summary||"").slice(0,500),images:(x.images||[]).slice(0,4),source:x.source||"",likes:x.likes||0,publishedAt:x.publishedAt||""})); items=JSON.stringify(slim); while(items.length>60000&&slim.length){ slim.pop(); items=JSON.stringify(slim); } nItems=slim.length; }
+    catch{ $("#xState").textContent="ข้อมูล JSON ไม่ถูกต้อง"; return; }
+  }
+  if(!urls.length && !nItems){ $("#xState").textContent="ไม่พบลิงก์โพสต์ X / Reddit ที่ถูกต้อง"; return; }
   if(!settings.gh){ $("#xState").textContent="ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; return; }
   const b=$("#btnXSend"); b.disabled=true;
-  try{ await dispatch(urls.join(" ")); $("#xState").textContent=`ส่งแล้ว ${urls.length} ลิงก์ — ข่าวจะขึ้นเองเมื่อดึงเสร็จ`; $("#xUrls").value=""; }
+  try{ await dispatch(urls.join(" "), items); $("#xState").textContent=`ส่งแล้ว ${urls.length} ลิงก์${nItems?` + ${nItems} ข่าวจาก JSON`:""} — ข่าวจะขึ้นเองเมื่อดึงเสร็จ`; $("#xUrls").value=""; $("#itemsJson").value=""; }
   catch(e){ $("#xState").textContent=ghErr(e); b.disabled=false; }
 };
 $("#mCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
@@ -668,10 +702,35 @@ $("#fManual").addEventListener("submit",e=>{
 $("#btnSettings").onclick=openSettings;
 $("#btnSetClose").onclick=()=>$("#dSet").close();
 $("#btnModels").onclick=loadModels;
-$("#fSet").addEventListener("submit",e=>{
+function tokenProblem(t){
+  if(!t) return "";
+  if(/github\.com|https?:|\//.test(t)) return "นี่คือลิงก์ ไม่ใช่ token — ให้คัดลอกค่าที่ขึ้นต้นด้วย github_pat_ ที่ GitHub โชว์หลังกด Generate token";
+  if(!/^(github_pat_|ghp_|gho_)[A-Za-z0-9_]{20,}$/.test(t)) return "รูปแบบ token ไม่ถูกต้อง (ต้องขึ้นต้นด้วย github_pat_ หรือ ghp_ และไม่มีเว้นวรรค)";
+  return "";
+}
+async function testToken(t, r){
+  const res=await fetch(`${GH}/repos/${r}`,{headers:{Accept:"application/vnd.github+json",Authorization:"Bearer "+t}});
+  if(res.status===401) return [false,"GitHub ไม่รับ token นี้ (Bad credentials) — token อาจผิดหรือหมดอายุ"];
+  if(res.status===404) return [false,"token ใช้ได้ แต่มองไม่เห็น repo นี้ — ตอนสร้าง token ต้องเลือก repo "+r];
+  if(!res.ok) return [false,"ทดสอบไม่ผ่าน (HTTP "+res.status+")"];
+  const w=await fetch(`${GH}/repos/${r}/actions/workflows/${WF}`,{headers:{Accept:"application/vnd.github+json",Authorization:"Bearer "+t}});
+  if(w.status===403) return [false,"token ไม่มีสิทธิ์ Actions — ตั้ง Actions / Contents / Workflows เป็น Read and write"];
+  return [true,"token ใช้ได้ ✓"];
+}
+$("#btnTestGh").onclick=async()=>{
+  const t=$("#sGh").value.trim(), r=$("#sRepo").value.trim()||repo(), m=$("#ghMsg");
+  const p=tokenProblem(t); if(!t){ m.className="tokmsg bad"; m.textContent="ยังไม่ได้ใส่ token"; return; }
+  if(p){ m.className="tokmsg bad"; m.textContent=p; return; }
+  m.className="tokmsg"; m.textContent="กำลังทดสอบ…";
+  try{ const [ok,msg]=await testToken(t,r); m.className="tokmsg "+(ok?"ok":"bad"); m.textContent=msg; }catch{ m.className="tokmsg bad"; m.textContent="ติดต่อ GitHub ไม่ได้"; }
+};
+$("#fSet").addEventListener("submit",async e=>{
   e.preventDefault();
-  settings={repo:$("#sRepo").value.trim(),gh:$("#sGh").value.trim(),ai:$("#sAi").value.trim(),model:$("#sModel").value};
-  ls.set("od.settings",settings); $("#dSet").close(); toast("บันทึกการตั้งค่าแล้ว"); loadStatus();
+  const t=$("#sGh").value.trim(), m=$("#ghMsg"), p=tokenProblem(t);
+  if(p){ m.className="tokmsg bad"; m.textContent=p; $("#sGh").focus(); return; }
+  settings={repo:$("#sRepo").value.trim(),gh:t,ai:$("#sAi").value.trim(),model:$("#sModel").value};
+  ls.set("od.settings",settings); $("#dSet").close(); loadStatus();
+  if(t){ try{ const [ok,msg]=await testToken(t,repo()); toast(ok?"บันทึกแล้ว · token ใช้ได้":"บันทึกแล้ว แต่ "+msg); }catch{ toast("บันทึกการตั้งค่าแล้ว"); } } else toast("บันทึกการตั้งค่าแล้ว");
 });
 
 $("#btnHide").onclick=()=>{ const n=news.find(x=>x.id===selId); if(!n) return;
