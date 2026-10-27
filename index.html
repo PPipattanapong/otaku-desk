@@ -169,7 +169,7 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
     <div class="filters">
       <input type="search" id="q" placeholder="ค้นหาข่าว…" aria-label="ค้นหาข่าว">
       <select id="fStatus" aria-label="สถานะ"><option value="">ทุกสถานะ</option><option value="new">รอเขียน</option><option value="written">เขียนแล้ว</option><option value="posted">โพสต์แล้ว</option></select>
-      <select id="fOrigin" aria-label="แหล่ง"><option value="">ทุกแหล่ง</option><option value="x">X</option><option value="reddit">Reddit</option><option value="web">เว็บข่าว</option><option value="manual">เพิ่มเอง</option></select>
+      <select id="fOrigin" aria-label="แหล่ง"><option value="">ทุกแหล่ง</option><option value="x">X</option><option value="web">เว็บข่าว</option><option value="manual">เพิ่มเอง</option></select>
       <select id="fSort" aria-label="เรียงตาม"><option value="fetched">ดึงมาล่าสุด</option><option value="posted">โพสต์ล่าสุด</option><option value="likes">ไลก์เยอะสุด</option></select>
     </div>
     <div class="chips" id="cats" style="margin-bottom:12px"></div>
@@ -224,12 +224,12 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
   <div class="dlg">
     <h2>เพิ่มข่าว</h2>
     <div class="box">
-      <h3>จากลิงก์โพสต์ X / Reddit</h3>
+      <h3>จากลิงก์โพสต์ X</h3>
       <div class="field">วางลิงก์โพสต์ได้หลายลิงก์ (คนละบรรทัด) ระบบจะดึงข้อความ ยอดไลก์ เวลาโพสต์ และรูปให้
         <textarea id="xUrls" placeholder="https://x.com/username/status/1234567890"></textarea>
       </div>
-      <details><summary class="hint" style="cursor:pointer">ข้อมูลข่าวแบบ JSON (สำหรับงานอัตโนมัติ เช่นข่าว Reddit)</summary>
-        <div class="field" style="margin-top:6px"><textarea id="itemsJson" placeholder='[{"title":"…","url":"https://…","summary":"…","images":["https://…"],"source":"Reddit r/cosplay","likes":1234,"publishedAt":"2026-10-27T10:00:00Z"}]'></textarea></div>
+      <details><summary class="hint" style="cursor:pointer">ข้อมูลข่าวแบบ JSON (สำหรับงานอัตโนมัติ)</summary>
+        <div class="field" style="margin-top:6px"><textarea id="itemsJson" placeholder='[{"title":"…","url":"https://…","summary":"…","images":["https://…"],"source":"ชื่อแหล่ง","likes":1234,"publishedAt":"2026-10-27T10:00:00Z"}]'></textarea></div>
       </details>
       <div class="row"><button class="btn primary" type="button" id="btnXSend">ส่งไปดึงข่าว</button><span class="hint" id="xState">ใช้เวลาราว 1–2 นาที ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน</span></div>
     </div>
@@ -367,7 +367,7 @@ function toMs(v){ if(!v) return 0; if(typeof v==="number") return v; const t=Dat
 function fmtShort(v){ const ms=toMs(v); if(!ms) return "—"; try{ return new Date(ms).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Bangkok"})+" น."; }catch{ return ""; } }
 const postedAt = n => toMs(n.publishedAt);
 const fetchedAt = n => toMs(n.fetchedAt||n.createdAt);
-const originOf = n => n.origin==="x"?"x":(/^Reddit/i.test(n.source||"")||/reddit\.com/.test(n.url||"")?"reddit":(n.origin||"web"));
+const originOf = n => n.origin==="x"?"x":(n.origin||"web");
 const STATUS_TH={new:"รอเขียน",written:"เขียนแล้ว",posted:"โพสต์แล้ว"};
 const st = id => state[id] || {};
 function setState(id, patch){ state[id]={...st(id),...patch,updatedAt:Date.now()}; ls.set("od.state",state); }
@@ -376,7 +376,7 @@ function b64dec(s){ const bin=atob(s.replace(/\s/g,"")); return new TextDecoder(
 
 /* ---------- data ---------- */
 function merge(){
-  news=[...localItems, ...remote].filter(n=>!st(n.id).hidden);
+  news=[...localItems, ...remote].filter(n=>!st(n.id).hidden && !/reddit\.com/.test(n.url||""));
   render();
 }
 async function loadNews(fresh){
@@ -660,14 +660,14 @@ $("#btnSaveTime").onclick=async()=>{
 $("#btnAdd").onclick=()=>{ $("#xState").textContent=settings.gh?"ใช้เวลาราว 1–2 นาที":"ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; $("#dAdd").showModal(); };
 $("#btnAddClose").onclick=()=>$("#dAdd").close();
 $("#btnXSend").onclick=async()=>{
-  const urls=[...new Set(($("#xUrls").value.match(/https?:\/\/(?:www\.|old\.)?(?:(?:x|twitter)\.com\/[^\s/]+\/status\/\d+|reddit\.com\/r\/[^\s/]+\/comments\/[^\s]+)/g)||[]).map(u=>u.replace(/[)\]>,.]+$/,"")))];
+  const urls=[...new Set(($("#xUrls").value.match(/https?:\/\/(?:www\.|old\.)?(?:(?:x|twitter)\.com\/[^\s/]+\/status\/\d+)/g)||[]).map(u=>u.replace(/[)\]>,.]+$/,"")))];
   let items="", nItems=0;
   const raw=$("#itemsJson").value.trim();
   if(raw){
     try{ const arr=JSON.parse(raw); if(!Array.isArray(arr)) throw 0; const slim=arr.filter(x=>x&&x.title&&x.url).slice(0,40).map(x=>({title:String(x.title).slice(0,200),url:x.url,summary:String(x.summary||"").slice(0,500),images:(x.images||[]).slice(0,4),source:x.source||"",likes:x.likes||0,publishedAt:x.publishedAt||""})); items=JSON.stringify(slim); while(items.length>60000&&slim.length){ slim.pop(); items=JSON.stringify(slim); } nItems=slim.length; }
     catch{ $("#xState").textContent="ข้อมูล JSON ไม่ถูกต้อง"; return; }
   }
-  if(!urls.length && !nItems){ $("#xState").textContent="ไม่พบลิงก์โพสต์ X / Reddit ที่ถูกต้อง"; return; }
+  if(!urls.length && !nItems){ $("#xState").textContent="ไม่พบลิงก์โพสต์ X ที่ถูกต้อง"; return; }
   if(!settings.gh){ $("#xState").textContent="ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; return; }
   const b=$("#btnXSend"); b.disabled=true;
   try{ await dispatch(urls.join(" "), items); $("#xState").textContent=`ส่งแล้ว ${urls.length} ลิงก์${nItems?` + ${nItems} ข่าวจาก JSON`:""} — ข่าวจะขึ้นเองเมื่อดึงเสร็จ`; $("#xUrls").value=""; $("#itemsJson").value=""; }
