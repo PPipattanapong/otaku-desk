@@ -47,6 +47,7 @@ function decode(s = "") {
 const strip = s => decode(s).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 function tag(block, name) { const m = block.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, "i")); return m ? m[1] : ""; }
 function absUrl(u, base) { if (!u || !String(u).trim()) return ""; try { return new URL(decode(u), base).toString(); } catch { return ""; } }
+function toMs(v) { if (!v) return 0; if (typeof v === "number") return v < 1e12 ? v * 1000 : v; const t = Date.parse(v); return isNaN(t) ? 0 : t; }
 function guessCat(text) { for (const [c, re] of CAT_RULES) if (re.test(text)) return c; return "Viral"; }
 function score(text) { return (text.match(BOOST) || []).length; }
 async function get(url, { json = false, timeout = 20000 } = {}) {
@@ -81,15 +82,50 @@ async function fromRss(src) {
 }
 
 /* ---------- Reddit ---------- */
+async function redditJson(url) {
+  const u = new URL(url); const tries = [u.toString(), u.toString().replace("://www.reddit.com", "://old.reddit.com"), u.toString().replace("://www.reddit.com", "://api.reddit.com")];
+  let last;
+  for (const t of tries) { try { return await get(t, { json: true }); } catch (e) { last = e; await sleep(500); } }
+  throw last;
+}
 async function fromReddit(src) {
-  const j = await get(src.url, { json: true });
-  return (j?.data?.children || []).map(c => c.data).filter(d => !d.stickied && !d.over_18).map(d => {
-    const imgs = [];
-    if (d.preview?.images) for (const im of d.preview.images) imgs.push(decode(im.source?.url || ""));
-    if (d.media_metadata) for (const k of Object.keys(d.media_metadata)) { const s = d.media_metadata[k]?.s; if (s?.u) imgs.push(decode(s.u)); }
-    if (/\.(jpe?g|png|gif|webp)$/i.test(d.url || "")) imgs.push(d.url);
-    return { title: decode(d.title), url: "https://www.reddit.com" + d.permalink, summary: (d.selftext || "").slice(0, 600), details: `${decode(d.title)}\n\n${d.selftext || ""}\n\nupvotes: ${d.ups} · comments: ${d.num_comments} · u/${d.author}`, images: [...new Set(imgs.filter(goodImg))].slice(0, 6), source: src.name, origin: "web", publishedAt: (d.created_utc || 0) * 1000, likes: d.ups };
-  });
+  let j;
+  try { j = await redditJson(src.url); }
+  catch (e) {
+    // fallback: Atom feed (often allowed when JSON is blocked)
+    const rss = src.url.replace(/\.json(\?|$)/, ".rss$1");
+    const items = await fromRss({ ...src, url: rss });
+    if (!items.length) throw e;
+    return items.map(it => ({ ...it, origin: "reddit" }));
+  }
+  return (j?.data?.children || []).map(c => c.data).filter(d => !d.stickied && !d.over_18).map(d => mapReddit(d, src.name));
+}
+function mapReddit(d, name) {
+  const imgs = [];
+  if (d.preview?.images) for (const im of d.preview.images) imgs.push(decode(im.source?.url || ""));
+  if (d.media_metadata) for (const k of Object.keys(d.media_metadata)) { const s = d.media_metadata[k]?.s; if (s?.u) imgs.push(decode(s.u)); }
+  if (/\.(jpe?g|png|gif|webp)$/i.test(d.url || "")) imgs.push(d.url);
+  return { title: decode(d.title), url: "https://www.reddit.com" + d.permalink, summary: (d.selftext || "").slice(0, 600), details: `${decode(d.title)}\n\n${d.selftext || ""}\n\nupvotes: ${d.ups} · comments: ${d.num_comments} · u/${d.author}`, images: [...new Set(imgs.filter(goodImg))].slice(0, 6), source: name || `Reddit r/${d.subreddit}`, origin: "reddit", publishedAt: (d.created_utc || 0) * 1000, likes: d.ups };
+}
+async function fromRedditPost(url) {
+  const clean = url.split("?")[0].replace(/\/$/, "").replace("://old.reddit.com", "://www.reddit.com");
+  const j = await redditJson(clean + ".json");
+  const d = j?.[0]?.data?.children?.[0]?.data; if (!d) return null;
+  return mapReddit(d);
+}
+
+/* ---------- HTML listing fallback (when a feed is blocked/empty) ---------- */
+async function fromHtml(src) {
+  const html = await get(src.htmlUrl);
+  const re = new RegExp(src.linkPattern);
+  const seen = new Set(); const out = [];
+  for (const m of html.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+    const link = absUrl(m[1], src.htmlUrl); const title = strip(m[2]);
+    if (!re.test(link) || seen.has(link) || title.length < 20) continue;
+    seen.add(link); out.push({ title, url: link, summary: "", details: "", images: [], source: src.name, origin: "web", publishedAt: 0 });
+    if (out.length >= 20) break;
+  }
+  return out;
 }
 
 /* ---------- X (public embed data) ---------- */
@@ -136,6 +172,7 @@ async function ogFill(item) {
   for (const m of body.matchAll(/<img[^>]+(?:data-src|src)="([^"]+)"/gi)) { const u = absUrl(m[1], item.url); if (goodImg(u) && !/avatar|icon|logo|ads?\//i.test(u)) imgs.push(u); if (imgs.length > 8) break; }
   item.images = [...new Set([...(item.images || []), ...imgs])].slice(0, 6);
   if (!item.summary) item.summary = meta("og:description") || meta("description");
+  if (!item.publishedAt) item.publishedAt = toMs(meta("article:published_time") || meta("og:published_time") || (html.match(/<time[^>]+datetime="([^"]+)"/i) || [])[1]);
   if (!item.details || item.details.length < 400) { const txt = strip(body).slice(0, 8000); if (txt.length > (item.details || "").length) item.details = txt; }
 }
 
@@ -178,33 +215,60 @@ const fresh = []; const errors = []; const counts = {};
 for (const src of sources) {
   if (src.enabled === false) continue;
   try {
-    const items = src.type === "reddit" ? await fromReddit(src) : await fromRss(src);
+    let items = [];
+    if (src.type === "reddit") items = await fromReddit(src);
+    else if (src.type === "html") items = await fromHtml(src);
+    else {
+      try { items = await fromRss(src); } catch (e) { if (!src.htmlUrl) throw e; errors.push(`${src.name}: feed ${e.message} → ใช้หน้าเว็บแทน`); }
+      if (!items.length && src.htmlUrl) items = await fromHtml(src);
+      if (!items.length) throw new Error("feed ว่าง (อาจถูกบล็อก)");
+    }
     let n = 0;
     for (const it of items) {
       const id = idFor(it.url); if (byId.has(id)) continue;
       const text = `${it.title} ${it.summary}`;
-      const item = { id, ...it, url: normUrl(it.url), category: guessCat(text), score: score(text) + (src.type === "reddit" ? 1 : 0), status: "new", createdAt: Date.now() };
+      const now = Date.now();
+      const item = { id, ...it, url: normUrl(it.url), category: guessCat(text), score: score(text) + (src.type === "reddit" ? 1 : 0), status: "new", createdAt: now, fetchedAt: now };
       byId.set(id, item); fresh.push(item); n++;
     }
     counts[src.name] = n; console.log(`${src.name}: +${n}`);
   } catch (e) { errors.push(`${src.name}: ${e.message}`); console.log(`${src.name} failed: ${e.message}`); }
 }
 
-// X links sent from the site or the daily X scan
-const xUrls = [...new Set((process.env.X_URLS || "").split(/[\s,]+/).filter(u => /(x|twitter)\.com\/[^/]+\/status\/\d+/.test(u)).map(normUrl))];
-let xAdded = 0;
+// links sent from the site or the daily scan (X + Reddit)
+const links = (process.env.X_URLS || "").split(/[\s,]+/).filter(Boolean);
+const xUrls = [...new Set(links.filter(u => /(x|twitter)\.com\/[^/]+\/status\/\d+/.test(u)).map(normUrl))];
+const rUrls = [...new Set(links.filter(u => /reddit\.com\/r\/[^/]+\/comments\//.test(u)).map(normUrl))];
+let xAdded = 0, rAdded = 0;
+function addItem(it, bonus = 3) {
+  const realId = idFor(it.url);
+  if (byId.has(realId)) { const old = byId.get(realId); if ((it.images || []).length) old.images = it.images; if (it.likes) old.likes = it.likes; if (it.publishedAt && !old.publishedAt) old.publishedAt = it.publishedAt; return false; }
+  const now = Date.now();
+  const item = { id: realId, ...it, url: normUrl(it.url), category: it.category && CATS.includes(it.category) ? it.category : guessCat(`${it.title} ${it.details || it.summary || ""}`), score: bonus + Math.min(5, Math.floor(Math.log10((it.likes || 1)))), status: "new", createdAt: now, fetchedAt: now };
+  byId.set(realId, item); fresh.push(item); return true;
+}
 for (const u of xUrls) {
-  const id = idFor(u);
   try {
     const it = await fromX(u); await sleep(400);
     if (!it) { errors.push(`X ${u}: no data`); continue; }
-    const realId = idFor(it.url);
-    if (byId.has(realId)) { Object.assign(byId.get(realId), { images: it.images, likes: it.likes }); continue; }
-    const item = { id: realId, ...it, category: guessCat(it.details), score: 3 + Math.min(5, Math.floor(Math.log10((it.likes || 1)))), status: "new", createdAt: Date.now() };
-    byId.set(realId, item); fresh.push(item); xAdded++;
+    if (addItem(it)) xAdded++;
   } catch (e) { errors.push(`X ${u}: ${e.message}`); }
 }
-counts["X"] = xAdded;
+for (const u of rUrls) {
+  try { const it = await fromRedditPost(u); await sleep(400); if (it && addItem(it)) rAdded++; }
+  catch (e) { errors.push(`Reddit ${u}: ${e.message} (ส่งข้อมูลแบบ JSON แทนได้)`); }
+}
+// pre-scraped items (e.g. Reddit read in the logged-in browser by the daily scan)
+let jAdded = 0;
+try {
+  const arr = JSON.parse(process.env.ITEMS_JSON || "[]");
+  for (const x of Array.isArray(arr) ? arr : []) {
+    if (!x?.title || !x?.url) continue;
+    const it = { title: String(x.title).slice(0, 300), url: x.url, summary: String(x.summary || ""), details: String(x.details || x.summary || ""), images: (x.images || []).filter(goodImg).slice(0, 6), source: x.source || "", origin: /reddit\.com/.test(x.url) ? "reddit" : (/(x|twitter)\.com/.test(x.url) ? "x" : "web"), publishedAt: toMs(x.publishedAt), likes: +x.likes || 0 };
+    if (addItem(it)) jAdded++;
+  }
+} catch (e) { errors.push("ITEMS_JSON: " + e.message); }
+counts["X"] = xAdded; if (rUrls.length || rAdded) counts["Reddit links"] = rAdded; if (jAdded) counts["JSON"] = jAdded;
 
 // images + fuller text for anything still missing them (new first, then a few older)
 const needImg = [...byId.values()].filter(n => !(n.images || []).length && !n.imageTried).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 45);
