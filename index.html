@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Otaku Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: newsroom desk — sticky toolbar, wire feed with thumbnails on the left, writing pad on the right; stacks on phones */
+:root{
+  --bg:#f2f3f6; --panel:#ffffff; --ink:#15171e; --muted:#5d6272; --line:#dcdee6;
+  --accent:#e0245e; --accent-ink:#ffffff; --soft:#fde8ef;
+  --ok:#0f8a6a; --ok-soft:#dcf3ec; --warn:#b26b00; --warn-soft:#fbefd9; --bad:#c62828; --x:#15171e;
+  --f-display:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111218; --panel:#1a1c24; --ink:#eceef4; --muted:#9aa0b2; --line:#2c2f3b;
+  --accent:#ff4f86; --accent-ink:#16070c; --soft:#3a1622;
+  --ok:#3fd0a6; --ok-soft:#123129; --warn:#f0b04a; --warn-soft:#352711; --bad:#ff6b6b; --x:#eceef4; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;padding-top:env(safe-area-inset-top,0px)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1360px;margin:0 auto}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent)}
+[hidden]{display:none!important}
+img{max-width:100%}
+
+header.top{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+@media (max-width:920px){header.top{position:static}}
+.top .wrap{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:10px}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto;flex-wrap:wrap}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.02em;margin:0;text-transform:uppercase}
+.brand h1 b{color:var(--accent)}
+.brand small{color:var(--muted);font-size:13px}
+.stats{display:flex;gap:4px;flex-wrap:wrap}
+.stat{display:flex;align-items:baseline;gap:6px;padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-size:13px;color:var(--muted);background:var(--bg)}
+.stat b{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--ink);font-size:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px;font-weight:500;font-size:14px;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sm{padding:4px 9px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.autobar{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center;padding-block:10px;font-size:13.5px;color:var(--muted);border-bottom:1px solid var(--line)}
+.autobar b{color:var(--ink);font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:middle}
+.dot.on{background:var(--ok)} .dot.off{background:var(--bad)} .dot.run{background:var(--warn);animation:pulse 1s infinite alternate}
+@keyframes pulse{to{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.dot.run{animation:none}}
+.timeedit{display:inline-flex;gap:6px;align-items:center}
+.timeedit input{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:3px 6px;font-family:var(--f-mono)}
+.banner{margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--warn-soft);color:var(--ink);font-size:13.5px;border:1px solid var(--line)}
+
+main.desk{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;padding-block:16px 40px}
+@media (max-width:920px){main.desk{grid-template-columns:minmax(0,1fr)}}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.filters input[type=search]{flex:1 1 180px;min-width:0;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 10px}
+.filters select{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 10px;font-size:13px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.feed{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:72px minmax(0,1fr);gap:12px;text-align:left;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+.item:hover{border-color:var(--muted)}
+.item[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;color:var(--muted);position:relative}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .badge{position:absolute;left:4px;bottom:4px;font-size:10px;background:var(--x);color:var(--bg);border-radius:4px;padding:0 5px;line-height:16px}
+.item h3{font-size:15px;line-height:1.45;margin:0 0 4px;font-weight:600;text-wrap:balance;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)}
+.tag{font-family:var(--f-display);font-weight:600;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;padding:1px 7px;border-radius:4px;background:var(--soft);color:var(--accent)}
+.pill{font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line)}
+.pill.new{color:var(--warn);background:var(--warn-soft);border-color:transparent}
+.pill.written{color:var(--accent);background:var(--soft);border-color:transparent}
+.pill.posted{color:var(--ok);background:var(--ok-soft);border-color:transparent}
+.empty{padding:28px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px;background:var(--panel)}
+.more{margin-top:6px}
+
+.pad{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;align-self:start;position:sticky;top:72px;max-height:calc(100vh - 88px);overflow:auto;min-width:0}
+@media (max-width:920px){.pad{position:static;max-height:none}}
+.pad h2{font-size:19px;line-height:1.4;margin:6px 0 8px;text-wrap:balance}
+.label{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.brief{white-space:pre-wrap;font-size:14.5px;margin:4px 0 0}
+.orig{font-size:13px;color:var(--muted);margin:4px 0 0}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin:10px 0 4px}
+.gallery a{display:block;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--bg);aspect-ratio:4/3;max-width:100%}
+.gallery img{width:100%;height:100%;object-fit:cover;display:block}
+.gallery.one{grid-template-columns:1fr}
+.gallery.one a{aspect-ratio:auto;max-height:360px}
+.gallery.one img{object-fit:contain;max-height:360px}
+details.raw{margin-top:8px;font-size:13.5px}
+details.raw summary{cursor:pointer;color:var(--muted)}
+details.raw pre{white-space:pre-wrap;font-family:var(--f-mono);font-size:12.5px;max-height:260px;overflow:auto;background:var(--bg);padding:10px;border-radius:8px;border:1px solid var(--line)}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0 10px}
+.opts label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
+.opts select,.opts input[type=text]{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 8px;color:var(--ink)}
+.check{flex-direction:row!important;align-items:center;gap:6px!important}
+hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+textarea.article{width:100%;min-height:340px;resize:vertical;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:14px;font-size:15.5px;line-height:1.75}
+.hint{font-size:12.5px;color:var(--muted)}
+.counter{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-left:auto}
+
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:0;width:min(680px,calc(100vw - 32px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(10,10,16,.55)}
+.dlg{padding:18px;display:flex;flex-direction:column;gap:12px}
+.dlg h2{font-family:var(--f-display);margin:0;font-size:18px;text-transform:uppercase;letter-spacing:.03em}
+.dlg h3{margin:4px 0 0;font-size:15px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;color:var(--ink);font-size:14.5px;min-width:0}
+.field textarea{min-height:80px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.two{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.box .field input,.box .field select,.box .field textarea{background:var(--panel)}
+.log{font-family:var(--f-mono);font-size:12px;white-space:pre-wrap;color:var(--muted)}
+ol.steps{margin:0;padding-left:20px;font-size:13.5px;color:var(--muted)}
+code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px 5px;border-radius:4px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:50;max-width:calc(100vw - 32px)}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><h1>Otaku <b>Desk</b></h1><small>หาข่าว อนิเมะ · เกม · ญี่ปุ่น · คอสเพลย์ → เขียนบทความสไตล์เพจ</small></div>
+    <div class="stats" aria-label="สถิติ">
+      <div class="stat">ทั้งหมด <b id="sAll">0</b></div>
+      <div class="stat">รอเขียน <b id="sNew">0</b></div>
+      <div class="stat">เขียนแล้ว <b id="sWritten">0</b></div>
+      <div class="stat">โพสต์แล้ว <b id="sPosted">0</b></div>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="btnUpdate" type="button">อัปเดตข่าวตอนนี้</button>
+      <button class="btn" id="btnAdd" type="button">+ เพิ่มข่าว</button>
+      <button class="btn ghost" id="btnSettings" type="button">ตั้งค่า</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="autobar" id="autobar">
+    <span><span class="dot" id="autoDot"></span>อัปเดตอัตโนมัติ <b id="autoState">กำลังเช็ก…</b></span>
+    <span class="timeedit">ทุกวันเวลา <input type="time" id="autoTime" value="10:00" aria-label="เวลาอัปเดตอัตโนมัติ (เวลาไทย)"> น. <button class="btn sm" id="btnSaveTime" type="button">ตั้งเวลา</button></span>
+    <button class="btn sm" id="btnToggle" type="button">หยุดอัตโนมัติ</button>
+    <span>อัปเดตล่าสุด <b id="lastUpdate">—</b></span>
+    <span id="runState"></span>
+  </div>
+  <div class="banner" id="banner" hidden></div>
+</div>
+
+<main class="wrap desk">
+  <section aria-label="รายการข่าว">
+    <div class="filters">
+      <input type="search" id="q" placeholder="ค้นหาข่าว…" aria-label="ค้นหาข่าว">
+      <select id="fStatus" aria-label="สถานะ"><option value="">ทุกสถานะ</option><option value="new">รอเขียน</option><option value="written">เขียนแล้ว</option><option value="posted">โพสต์แล้ว</option></select>
+      <select id="fOrigin" aria-label="แหล่ง"><option value="">ทุกแหล่ง</option><option value="x">X</option><option value="web">เว็บข่าว</option><option value="manual">เพิ่มเอง</option></select>
+    </div>
+    <div class="chips" id="cats" style="margin-bottom:12px"></div>
+    <div class="feed" id="feed"><div class="empty">กำลังโหลดข่าว…</div></div>
+    <div class="more" id="moreWrap" hidden><button class="btn" id="btnMore" type="button" style="width:100%;justify-content:center">ดูเพิ่ม</button></div>
+  </section>
+
+  <section class="pad" id="pad" aria-label="เขียนบทความ">
+    <div id="padEmpty" class="empty" style="border:0">เลือกข่าวทางซ้ายเพื่อเริ่มเขียน</div>
+    <div id="padBody" hidden>
+      <div class="row"><span class="tag" id="pCat"></span><span class="pill" id="pStatus"></span><span class="hint" id="pSrc"></span></div>
+      <h2 id="pTitle"></h2>
+      <div class="gallery" id="pImgs"></div>
+      <div class="row" id="pImgTools" hidden><span class="hint" id="pImgCount"></span><button class="btn sm ghost" id="btnCopyImgs" type="button">คัดลอกลิงก์รูปทั้งหมด</button></div>
+      <div class="label" style="margin-top:8px">สรุปข่าว</div>
+      <p class="brief" id="pSummary"></p>
+      <p class="orig" id="pOrig" hidden></p>
+      <details class="raw"><summary>ข้อมูลดิบ / เนื้อหาต้นทาง</summary><pre id="pRaw"></pre></details>
+      <div class="row" style="margin-top:10px">
+        <a class="btn sm" id="pLink" target="_blank" rel="noopener">เปิดลิงก์ต้นทาง ↗</a>
+        <button class="btn sm ghost" id="btnHide" type="button">ซ่อนข่าวนี้</button>
+      </div>
+      <hr>
+      <div class="label">เขียนบทความ</div>
+      <div class="opts">
+        <label>ความยาว<select id="oLen"><option value="short">สั้น ~100 คำ</option><option value="mid" selected>กลาง ~180 คำ</option><option value="long">ยาว ~280 คำ</option></select></label>
+        <label>มุมเล่า<select id="oAngle"><option value="normal">เล่าข่าวปกติ</option><option value="netizen">เน้นรีแอคชาวเน็ต</option><option value="tease">แซวขำ ๆ จัดเต็ม</option><option value="info">ให้ข้อมูล/บริบทเยอะ</option></select></label>
+        <label>โน้ตถึง AI (ไม่บังคับ)<input type="text" id="oNote" placeholder="เช่น เน้นชื่อเรื่องไทย"></label>
+        <label class="check"><input type="checkbox" id="oCredit" checked> ใส่ที่มาท้ายโพสต์</label>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btnWrite" type="button">เขียนด้วย AI</button>
+        <button class="btn" id="btnPrompt" type="button">คัดลอกพรอมต์ไปวางใน Claude</button>
+        <button class="btn" id="btnHooks" type="button">ขอฮุก 5 แบบ</button>
+        <button class="btn ghost" id="btnStop" type="button" hidden>หยุด</button>
+      </div>
+      <div class="hint" id="wState" style="margin-top:6px"></div>
+      <div id="hooks" class="chips" style="margin-top:8px"></div>
+      <textarea class="article" id="article" style="margin-top:12px" placeholder="บทความจะขึ้นตรงนี้ หรือวางบทความที่ได้จาก Claude แก้ไขได้เลย"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="btnCopy" type="button">คัดลอก</button>
+        <button class="btn" id="btnSave" type="button">บันทึก</button>
+        <button class="btn" id="btnPosted" type="button">ติ๊กว่าโพสต์แล้ว</button>
+        <span class="counter" id="count">0 ตัวอักษร</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="dAdd">
+  <div class="dlg">
+    <h2>เพิ่มข่าว</h2>
+    <div class="box">
+      <h3>จากลิงก์โพสต์ X</h3>
+      <div class="field">วางลิงก์โพสต์ X ได้หลายลิงก์ (คนละบรรทัด) ระบบจะดึงข้อความ ยอดไลก์ และรูปให้
+        <textarea id="xUrls" placeholder="https://x.com/username/status/1234567890"></textarea>
+      </div>
+      <div class="row"><button class="btn primary" type="button" id="btnXSend">ส่งไปดึงข่าว</button><span class="hint" id="xState">ใช้เวลาราว 1–2 นาที ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน</span></div>
+    </div>
+    <form class="box" id="fManual">
+      <h3>เพิ่มเอง (เก็บในเบราว์เซอร์นี้)</h3>
+      <div class="field">วางข่าวทั้งก้อน (ถ้ามี API key จะช่วยแยกข้อมูลให้)<textarea id="mPaste" placeholder="คัดลอกหัวข้อ + เนื้อหาจากหน้าเว็บมาวาง"></textarea></div>
+      <div class="row"><button class="btn sm" type="button" id="btnParse">แยกข้อมูลด้วย AI</button><span class="hint" id="parseState"></span></div>
+      <div class="field">หัวข้อข่าว<input id="mTitle" required></div>
+      <div class="two">
+        <div class="field">หมวดหมู่<select id="mCat"></select></div>
+        <div class="field">แหล่งที่มา<input id="mSource" placeholder="เช่น Automaton"></div>
+      </div>
+      <div class="field">สรุปสั้น ๆ<textarea id="mSummary"></textarea></div>
+      <div class="two">
+        <div class="field">ลิงก์ข่าวต้นทาง<input id="mUrl" type="url" placeholder="https://"></div>
+        <div class="field">ลิงก์รูป (คั่นด้วยเว้นวรรค)<input id="mImgs" placeholder="https://….jpg"></div>
+      </div>
+      <div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">บันทึก</button></div>
+    </form>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" type="button" id="btnAddClose">ปิด</button></div>
+  </div>
+</dialog>
+
+<dialog id="dSet">
+  <form class="dlg" id="fSet">
+    <h2>ตั้งค่า</h2>
+    <p class="hint" style="margin:0">ค่าทั้งหมดเก็บในเบราว์เซอร์เครื่องนี้เท่านั้น ไม่ถูกส่งขึ้น repo</p>
+    <div class="box">
+      <h3>GitHub (ปุ่มอัปเดต ตั้งเวลา หยุด และดึงโพสต์ X)</h3>
+      <div class="field">Repo<input id="sRepo" placeholder="owner/repo"></div>
+      <div class="field">Personal access token<input id="sGh" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+      <ol class="steps">
+        <li>เปิด <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
+        <li>Repository access: เลือกเฉพาะ repo นี้</li>
+        <li>Permissions: <b>Actions</b> = Read and write, <b>Contents</b> = Read and write, <b>Workflows</b> = Read and write</li>
+        <li>สร้างแล้วคัดลอกมาวางที่ช่องด้านบน</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h3>AI เขียนบทความ (ไม่บังคับ)</h3>
+      <div class="field">Claude API key<input id="sAi" type="password" autocomplete="off" placeholder="sk-ant-…"></div>
+      <div class="two">
+        <div class="field">โมเดล<select id="sModel"><option value="">— กดโหลดรายชื่อ —</option></select></div>
+        <div class="field" style="justify-content:flex-end"><button class="btn" type="button" id="btnModels">โหลดรายชื่อโมเดล</button></div>
+      </div>
+      <p class="hint" style="margin:0">สร้าง key ได้ที่ console.anthropic.com · ถ้าไม่ใส่ ใช้ปุ่ม “คัดลอกพรอมต์” ไปวางใน Claude แทนได้ · ถ้าอยากให้ข่าวจากเว็บถูกแปลเป็นไทยตอนดึงอัตโนมัติ ให้ใส่ key เดียวกันเป็น secret ชื่อ <code>ANTHROPIC_API_KEY</code> ใน repo</p>
+    </div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" type="button" id="btnSetClose">ยกเลิก</button>
+      <button class="btn primary" type="submit">บันทึก</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const CATS = ["Cosplay","VTuber","Anime","Game","Manga","Japan","Viral"];
+const WF = "update-news.yml";
+const GH = "https://api.github.com";
+const PAGE = 60;
+
+const STYLE = `สไตล์เพจ (ต้องทำตามเคร่งครัด):
+- บรรทัดแรก = "ฮุก" สั้นมาก 2–8 คำ กวน ๆ ชวนคลิก เหมือนคนดูแอบแซว เช่น "หนีไป! นี่คือกับดัก!!!" / "แค่เห็น ยังอายแทน!" / "ไว้หลอกลูกหลาน" / "ง่ายกว่าที่คิด"
+- เว้นบรรทัด แล้วเข้าเรื่องทันทีในประโยคแรก: ใคร (บอกว่าเป็นใคร เช่น "คอสเพลย์เยอร์สาวชาวญี่ปุ่น", "VTuber หญิงชาวญี่ปุ่น") ทำอะไร ที่ไหน
+- ย่อหน้าสั้น 1–3 ประโยค เว้นบรรทัดระหว่างย่อหน้า ภาษาพูดเป็นกันเอง เหมือนเพื่อนเล่าเรื่องในวงการให้ฟัง ใช้คำแบบ "ชาวเน็ต", "เจ้าตัว", "พี่แก", "งานนี้", "แถม", "เรียกได้ว่า"
+- ให้บริบทสั้น ๆ สำหรับคนไม่รู้จัก (เธอเป็นที่รู้จักจากอะไร, เรื่องนี้คืออะไร)
+- ชื่อคน/ตัวละครเขียนเป็นอักษรอังกฤษ ชื่อเรื่องใช้ชื่ออังกฤษ แล้วตามด้วยชื่อไทยในวงเล็บถ้ามี
+- อ้างบัญชีโซเชียลให้เขียน "@ username" (เว้นวรรคหลัง @)
+- ข้อความโพสต์ต้นฉบับหรือคอมเมนต์ชาวเน็ต ให้แปลเป็นไทยใส่ใน “ ” แยกบรรทัดของมันเอง
+- ปิดท้ายด้วยมุกแซว/ความเห็นเบา ๆ 1 บรรทัด อาจลงท้ายด้วย 555 หรือ ... ได้
+- ห้ามใช้อีโมจิ ห้ามแฮชแท็ก ห้ามใช้ markdown ห้ามตัวหนา ห้ามใส่หัวข้อย่อย
+- ห้ามแต่งข้อเท็จจริง ตัวเลข หรือคำพูดเพิ่มเองเด็ดขาด ใช้เฉพาะข้อมูลที่ให้มา ถ้าไม่มีคอมเมนต์ชาวเน็ตจริงในข้อมูล ห้ามแต่งคำพูดชาวเน็ต (เล่าแบบกว้าง ๆ ได้ว่า "ชาวเน็ตเข้ามาแซวกันเพียบ" ถ้าข้อมูลบอกว่ามีรีแอค)
+- เรื่องทะลึ่งให้เล่าแบบเลี่ยงคำหยาบ ใช้คำสุภาพหรือคำเลี่ยง`;
+
+const EXAMPLES = `ตัวอย่างโพสต์ของเพจ (ดูน้ำเสียง จังหวะ และโครงสร้าง ห้ามลอกเนื้อหา):
+
+--- ตัวอย่าง 1 ---
+หนีไป! นี่คือกับดัก!!!
+
+Akase Akari คอสเพลย์เยอร์และนักร้องสาวชาวญี่ปุ่น ได้โพสต์คลิปล่าสุดลงบนช่อง YouTube ของเธอ @ akaseakari174 ชื่อคลิปใจความประมาณว่า “ลองต่อกันพลาดู! ครั้งแรกเลย!” และในคลิปก็เผยให้เห็นเธอลองประกอบโมเดลกันดั้ม หรือ Gunpla เป็นครั้งแรก
+
+โดยเธอเป็นที่รู้จักในหมู่แฟน ๆ จากการคอสเพลย์เป็น Marin Kitagawa นางเอกจากอนิเมะเรื่อง My Dress-Up Darling (หนุ่มเย็บผ้ากับสาวนักคอสเพลย์) ที่เหมือนมากก จนหลายคนยกให้เป็น Marin ในชีวิตจริง
+
+เหมือนก่อนหน้านี้เธอได้ไปออก Live เปิดตัว Gundam ด้วย การลองเข้าวงการกันพลามาต่อบ้างก็ไม่แปลกอะไรนะ แต่อย่าถลำลึกกกก 555
+
+--- ตัวอย่าง 2 ---
+VTuber หญิงชาวญี่ปุ่น @ mochitaro2s โพสต์ข้อความบน X ด้วยความตื่นตระหนกว่า
+
+“ฉุกเฉิน!! ใครก็ได้ช่วยที!!
+พอเปิดคอมพิวเตอร์แล้วมันขึ้นหน้าจอแบบนี้ค่ะ!!”
+
+หลังเปิดคอมพิวเตอร์แล้วพบหน้าจอแปลก ๆ ที่เต็มไปด้วยข้อมูลทางเทคนิค (หน้า BIOS) เธอกลัวว่าคอมจะพัง จึงโพสต์คลิปขอความช่วยเหลือ จนคลิปมียอดเข้าชมทะลุ 1 ล้านครั้ง
+
+แต่สาเหตุจริง ๆ กลับเรียบง่ายกว่าที่คิด เพราะหน้าอกของเธอไปกดปุ่มคีย์บอร์ดหลายปุ่มพร้อมกันโดยไม่รู้ตัวตอนเปิดเครื่อง เพียงแค่ขยับตัวออกห่างแล้วรีสตาร์ต ทุกอย่างก็กลับมาเป็นปกติ
+
+ง่ายกว่าที่คิดซะอีก....
+
+--- ตัวอย่าง 3 ---
+แค่เห็น ยังอายแทน!
+
+หนุ่มโพสต์จัดอันดับอนิเมะที่เคยดู ก่อนโป๊ะแตก โดนชาวเน็ตล้อ ขี้เกียจจัด Tier List ยังใช้ AI ทำ
+
+เว็บจัด Tier List ก็มีให้เลือกตั้งเยอะแยะ แต่พี่ชายกลับเลือกเส้นทางสุดอ้อม ใช้ AI สร้างภาพจัดอันดับแทน งานนี้ชาวเน็ตเข้ามาแซวกันเพียบ
+
+“คนเราจะขี้เกียจได้ถึงขนาดไหน”
+
+“ตอนดูเมะ พี่ชายดูผ่าน AI ปะเนี่ย”
+
+ถ้าจะขี้เกียจขนาดนี้ พิมพ์ชื่อเรื่องเปล่า ๆ ยังดูดีกว่านะ 555`;
+
+/* ---------- local storage ---------- */
+const ls = {
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} }
+};
+let settings = ls.get("od.settings",{});
+let state = ls.get("od.state",{});      // id -> {status, article, hidden, postedAt}
+let localItems = ls.get("od.local",[]);
+let remote = [], news = [], selId = null, filterCat = "", shown = PAGE, ctl = null, wf = null, polling = null;
+
+function guessRepo(){ const h=location.hostname; if(h.endsWith(".github.io")){ const owner=h.split(".")[0]; const seg=location.pathname.split("/").filter(Boolean)[0]; return owner+"/"+(seg&&!seg.includes(".")?seg:h); } return ""; }
+const repo = () => (settings.repo || guessRepo()).trim();
+
+function toast(m){ const t=$("#toast"); t.textContent=m; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(()=>t.hidden=true,2600); }
+function banner(m){ const b=$("#banner"); b.hidden=!m; b.textContent=m||""; }
+function esc(s){ return String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function hash(s){ let h=2166136261; for(const c of s){ h^=c.codePointAt(0); h=Math.imul(h,16777619); } return (h>>>0).toString(36); }
+function ago(ms){ if(!ms) return ""; const m=Math.round((Date.now()-ms)/60000); if(m<1) return "เมื่อกี้"; if(m<60) return m+" นาทีที่แล้ว"; const h=Math.round(m/60); if(h<48) return h+" ชม.ที่แล้ว"; return Math.round(h/24)+" วันที่แล้ว"; }
+function fmtTime(iso){ try{ return new Date(iso).toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Bangkok"}); }catch{ return iso; } }
+const STATUS_TH={new:"รอเขียน",written:"เขียนแล้ว",posted:"โพสต์แล้ว"};
+const st = id => state[id] || {};
+function setState(id, patch){ state[id]={...st(id),...patch,updatedAt:Date.now()}; ls.set("od.state",state); }
+function b64enc(s){ const b=new TextEncoder().encode(s); let o=""; for(let i=0;i<b.length;i+=0x8000) o+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000)); return btoa(o); }
+function b64dec(s){ const bin=atob(s.replace(/\s/g,"")); return new TextDecoder().decode(Uint8Array.from(bin,c=>c.charCodeAt(0))); }
+
+/* ---------- data ---------- */
+function merge(){
+  news=[...localItems, ...remote].filter(n=>!st(n.id).hidden);
+  render();
+}
+async function loadNews(fresh){
+  let data=null, meta=null;
+  try{
+    if(fresh && repo()){
+      const h={Accept:"application/vnd.github.raw+json"}; if(settings.gh) h.Authorization="Bearer "+settings.gh;
+      const [a,b]=await Promise.all([fetch(`${GH}/repos/${repo()}/contents/data/news.json?ref=main&t=${Date.now()}`,{headers:h}),fetch(`${GH}/repos/${repo()}/contents/data/meta.json?ref=main&t=${Date.now()}`,{headers:h})]);
+      if(a.ok) data=await a.json(); if(b.ok) meta=await b.json();
+    }
+  }catch{}
+  if(!data){ try{ const r=await fetch("data/news.json?t="+Date.now()); data=await r.json(); }catch{ data=[]; } }
+  if(!meta){ try{ const r=await fetch("data/meta.json?t="+Date.now()); meta=await r.json(); }catch{} }
+  remote=Array.isArray(data)?data:[];
+  if(meta?.updatedAt) $("#lastUpdate").textContent=fmtTime(meta.updatedAt)+(meta.added!=null?` · ใหม่ ${meta.added} ข่าว`:"");
+  merge();
+}
+
+/* ---------- render ---------- */
+function renderCats(){ $("#cats").innerHTML=["",...CATS].map(c=>`<button type="button" class="chip" data-cat="${c}" aria-pressed="${filterCat===c}">${c||"ทุกหมวด"}</button>`).join(""); }
+const statusOf = n => st(n.id).status || "new";
+function thumbHtml(n){
+  const img=(n.images||[])[0];
+  const x=n.origin==="x"?`<span class="badge">X</span>`:"";
+  if(img) return `<span class="thumb"><img loading="lazy" referrerpolicy="no-referrer" src="${esc(img)}" alt="" onerror="this.remove()">${x}</span>`;
+  return `<span class="thumb">${n.origin==="x"?"X":esc((n.source||"?").slice(0,2).toUpperCase())}</span>`;
+}
+function render(){
+  const q=$("#q").value.trim().toLowerCase(), fs=$("#fStatus").value, fo=$("#fOrigin").value;
+  $("#sAll").textContent=news.length;
+  $("#sNew").textContent=news.filter(n=>statusOf(n)==="new").length;
+  $("#sWritten").textContent=news.filter(n=>statusOf(n)==="written").length;
+  $("#sPosted").textContent=news.filter(n=>statusOf(n)==="posted").length;
+  const list=news.filter(n=>(!filterCat||n.category===filterCat)&&(!fs||statusOf(n)===fs)&&(!fo||(n.origin||"web")===fo)&&(!q||`${n.title} ${n.summary} ${n.source} ${n.titleOriginal||""}`.toLowerCase().includes(q)));
+  const feed=$("#feed");
+  if(!news.length) feed.innerHTML=`<div class="empty">ยังไม่มีข่าว<br><span class="hint">กด “อัปเดตข่าวตอนนี้” หรือ “+ เพิ่มข่าว”</span></div>`;
+  else if(!list.length) feed.innerHTML=`<div class="empty">ไม่มีข่าวที่ตรงกับตัวกรอง</div>`;
+  else feed.innerHTML=list.slice(0,shown).map(n=>{ const s=statusOf(n); return `<button type="button" class="item" data-id="${n.id}" aria-current="${n.id===selId}">
+      ${thumbHtml(n)}
+      <span style="min-width:0"><h3>${esc(n.title)}</h3><span class="meta"><span class="tag">${esc(n.category||"Viral")}</span><span class="pill ${s}">${STATUS_TH[s]}</span><span>${esc(n.source||"")}</span>${n.likes?`<span>· ♥ ${Number(n.likes).toLocaleString()}</span>`:""}<span>· ${ago(n.createdAt||n.publishedAt)}</span></span></span>
+    </button>`; }).join("");
+  $("#moreWrap").hidden=list.length<=shown;
+  renderPad();
+}
+let padShownId=null;
+function renderPad(){
+  const n=news.find(x=>x.id===selId);
+  $("#padEmpty").hidden=!!n; $("#padBody").hidden=!n;
+  if(!n) return;
+  const s=statusOf(n);
+  $("#pCat").textContent=n.category||"Viral";
+  const ps=$("#pStatus"); ps.className="pill "+s; ps.textContent=STATUS_TH[s];
+  $("#pSrc").textContent=[n.source, n.likes?`♥ ${Number(n.likes).toLocaleString()}`:"", n.publishedAt?fmtTime(n.publishedAt):""].filter(Boolean).join(" · ");
+  $("#pTitle").textContent=n.title;
+  $("#pSummary").textContent=n.summary||"—";
+  const o=$("#pOrig"); o.hidden=!n.titleOriginal; o.textContent=n.titleOriginal?("ต้นฉบับ: "+n.titleOriginal):"";
+  $("#pRaw").textContent=n.details||"(ไม่มีเนื้อหาเต็ม)";
+  const imgs=n.images||[];
+  const g=$("#pImgs"); g.className="gallery"+(imgs.length===1?" one":"");
+  g.innerHTML=imgs.map((u,i)=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="เปิดรูปเต็ม"><img loading="lazy" referrerpolicy="no-referrer" src="${esc(u)}" alt="รูปประกอบข่าว ${i+1}" onerror="this.parentNode.remove()"></a>`).join("");
+  $("#pImgTools").hidden=!imgs.length; $("#pImgCount").textContent=imgs.length?`รูป ${imgs.length} รูป · แตะรูปเพื่อเปิดเต็มแล้วบันทึก`:"";
+  const l=$("#pLink"); if(n.url){ l.href=n.url; l.hidden=false; } else l.hidden=true;
+  $("#btnHide").textContent=n.origin==="manual"?"ลบข่าวนี้":"ซ่อนข่าวนี้";
+  $("#btnPosted").textContent=s==="posted"?"ยกเลิกสถานะโพสต์":"ติ๊กว่าโพสต์แล้ว";
+  if(padShownId!==n.id){ padShownId=n.id; $("#article").value=st(n.id).article||""; $("#hooks").innerHTML=""; $("#wState").textContent=""; updateCount(); }
+}
+function updateCount(){ $("#count").textContent=$("#article").value.length+" ตัวอักษร"; }
+
+/* ---------- GitHub ---------- */
+async function gh(path, opts={}){
+  const headers={Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"};
+  if(settings.gh) headers.Authorization="Bearer "+settings.gh;
+  if(opts.body) headers["Content-Type"]="application/json";
+  const r=await fetch(GH+path,{...opts,headers});
+  if(!r.ok){ let m=""; try{ m=(await r.json()).message; }catch{} const e=new Error(m||("HTTP "+r.status)); e.status=r.status; throw e; }
+  return r.status===204?null:r.json();
+}
+function ghErr(e){
+  if(!settings.gh) return "ต้องใส่ GitHub token ในหน้าตั้งค่าก่อน";
+  if(e.status===401) return "GitHub token ไม่ถูกต้องหรือหมดอายุ";
+  if(e.status===403) return "token ไม่มีสิทธิ์พอ (ต้องมี Actions / Contents / Workflows แบบ Read and write)";
+  if(e.status===404) return "ไม่พบ repo หรือ workflow — ตรวจชื่อ repo ในหน้าตั้งค่า";
+  if(e.status===422) return "GitHub ไม่รับคำสั่ง ("+e.message+")";
+  return "ติดต่อ GitHub ไม่สำเร็จ ("+e.message+")";
+}
+function cronToLocal(c){ const m=c.match(/^(\d+)\s+(\d+)\s/); if(!m) return null; const h=(+m[2]+7)%24; return String(h).padStart(2,"0")+":"+String(m[1]).padStart(2,"0"); }
+async function loadStatus(){
+  if(!repo()){ $("#autoState").textContent="ไม่ทราบ repo — ตั้งค่าในหน้าตั้งค่า"; return; }
+  try{
+    const [w, runs, file]=await Promise.all([
+      gh(`/repos/${repo()}/actions/workflows/${WF}`),
+      gh(`/repos/${repo()}/actions/workflows/${WF}/runs?per_page=1`),
+      gh(`/repos/${repo()}/contents/.github/workflows/${WF}?ref=main`).catch(()=>null)
+    ]);
+    wf={...w, file};
+    const on=w.state==="active";
+    $("#autoDot").className="dot "+(on?"on":"off");
+    $("#autoState").textContent=on?"เปิดอยู่":"หยุดอยู่";
+    $("#btnToggle").textContent=on?"หยุดอัตโนมัติ":"เปิดอัตโนมัติ";
+    if(file){ const txt=b64dec(file.content); const m=txt.match(/cron:\s*'([^']+)'/); const t=m&&cronToLocal(m[1]); if(t && document.activeElement!==$("#autoTime")) $("#autoTime").value=t; }
+    showRun(runs.workflow_runs?.[0]);
+  }catch(e){ $("#autoState").textContent="เช็กสถานะไม่ได้"; $("#runState").textContent=e.status===403&&!settings.gh?"(GitHub จำกัดการเรียก ลองใหม่ภายหลัง)":""; }
+}
+function showRun(r){
+  const el=$("#runState");
+  if(!r){ el.textContent=""; return; }
+  const live=r.status!=="completed";
+  const how=r.event==="schedule"?"ตามเวลา":"กดเอง";
+  el.innerHTML=live?`<span class="dot run"></span>กำลังดึงข่าว (${how}) <a href="${esc(r.html_url)}" target="_blank" rel="noopener">ดูความคืบหน้า</a>`
+    :`รอบล่าสุด (${how}): <b style="color:var(--${r.conclusion==="success"?"ok":"bad"})">${r.conclusion==="success"?"สำเร็จ":"ไม่สำเร็จ"}</b> · ${ago(Date.parse(r.updated_at))} <a href="${esc(r.html_url)}" target="_blank" rel="noopener">รายละเอียด</a>`;
+  return live;
+}
+async function dispatch(xUrls){
+  await gh(`/repos/${repo()}/actions/workflows/${WF}/dispatches`,{method:"POST",body:JSON.stringify({ref:"main",inputs:{x_urls:xUrls||""}})});
+  startPolling();
+}
+function startPolling(){
+  clearInterval(polling);
+  const started=Date.now(); let seenLive=false;
+  $("#runState").innerHTML=`<span class="dot run"></span>ส่งคำสั่งแล้ว กำลังเริ่ม…`;
+  polling=setInterval(async()=>{
+    try{
+      const runs=await gh(`/repos/${repo()}/actions/workflows/${WF}/runs?per_page=1`);
+      const r=runs.workflow_runs?.[0];
+      const live=showRun(r);
+      if(live) seenLive=true;
+      if(!live && r && (seenLive || Date.parse(r.created_at)>started-60000)){
+        clearInterval(polling); polling=null;
+        await loadNews(true);
+        toast(r.conclusion==="success"?"อัปเดตข่าวแล้ว":"ดึงข่าวไม่สำเร็จ ดูรายละเอียดที่ลิงก์");
+        $("#btnUpdate").disabled=false; $("#btnXSend").disabled=false;
+      }
+    }catch(e){}
+    if(Date.now()-started>10*60000){ clearInterval(polling); polling=null; $("#btnUpdate").disabled=false; $("#btnXSend").disabled=false; }
+  },8000);
+}
+
+/* ---------- AI ---------- */
+function brief(n){
+  return `หัวข้อ: ${n.title}${n.titleOriginal?`\nหัวข้อต้นฉบับ: ${n.titleOriginal}`:""}
+หมวด: ${n.category}
+แหล่งที่มา: ${n.source||"-"}
+ลิงก์: ${n.url||"-"}
+${n.likes?`ยอดไลก์: ${n.likes}\n`:""}${(n.images||[]).length?`มีรูปประกอบ ${n.images.length} รูป\n`:""}สรุป: ${n.summary||"-"}
+ข้อมูลต้นทาง:
+${(n.details||"-").slice(0,20000)}`;
+}
+function buildPrompt(n){
+  const len={short:"ประมาณ 80–120 คำ 3 ย่อหน้า",mid:"ประมาณ 150–200 คำ 4–5 ย่อหน้า",long:"ประมาณ 250–320 คำ 5–7 ย่อหน้า"}[$("#oLen").value];
+  const angle={normal:"เล่าข่าวตามปกติของเพจ",netizen:"เน้นปฏิกิริยา/คอมเมนต์ชาวเน็ตที่มีในข้อมูล (แปลใส่ “ ” แยกบรรทัด)",tease:"แซวขำ ๆ จัดเต็ม กวนแต่ไม่หยาบ ไม่ล้อรูปลักษณ์แบบดูถูก",info:"ให้บริบทเรื่อง/ตัวละคร/คนที่เกี่ยวข้องมากขึ้นสำหรับคนไม่รู้จัก"}[$("#oAngle").value];
+  const credit=$("#oCredit").checked?`บรรทัดสุดท้ายแยกออกมา: "ที่มา: <ชื่อแหล่ง>" (ไม่ต้องใส่ลิงก์)`:"ไม่ต้องใส่ที่มา";
+  const note=$("#oNote").value.trim();
+  return `คุณคือแอดมินเพจข่าวอนิเมะ/เกม/ญี่ปุ่นภาษาไทยบน Facebook เขียนโพสต์ข่าว 1 โพสต์จากข้อมูลด้านล่าง
+
+${STYLE}
+
+${EXAMPLES}
+
+คำสั่งสำหรับโพสต์นี้:
+- ความยาว: ${len}
+- มุมเล่า: ${angle}
+- ${credit}
+${note?"- โน้ตจากแอดมิน: "+note+"\n":""}- ตอบเป็นเนื้อโพสต์อย่างเดียว ไม่ต้องอธิบาย ไม่ต้องมีคำนำ
+
+ข้อมูลข่าว:
+${brief(n)}`;
+}
+function aiHeaders(){ return {"x-api-key":settings.ai,"anthropic-version":"2023-06-01","content-type":"application/json","anthropic-dangerous-direct-browser-access":"true"}; }
+async function claude(prompt,{onText,signal,maxTokens=2000}={}){
+  if(!settings.ai) throw new Error("no_key");
+  if(!settings.model) throw new Error("no_model");
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",signal,headers:aiHeaders(),body:JSON.stringify({model:settings.model,max_tokens:maxTokens,stream:!!onText,messages:[{role:"user",content:prompt}]})});
+  if(!r.ok){ let m=""; try{ m=(await r.json()).error?.message; }catch{} throw new Error(m||("HTTP "+r.status)); }
+  if(!onText){ const j=await r.json(); return (j.content||[]).map(c=>c.text||"").join(""); }
+  const rd=r.body.getReader(), dec=new TextDecoder(); let buf="", text="";
+  for(;;){
+    const {value,done}=await rd.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    let i; while((i=buf.indexOf("\n"))>=0){ const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
+      if(!line.startsWith("data:")) continue;
+      try{ const ev=JSON.parse(line.slice(5)); if(ev.type==="content_block_delta"&&ev.delta?.text){ text+=ev.delta.text; onText(text); } if(ev.type==="error") throw new Error(ev.error?.message||"error"); }catch(e){ if(e.message&&!/JSON/.test(e.message)) throw e; }
+    }
+  }
+  return text;
+}
+function aiErr(e){ if(e.name==="AbortError") return "หยุดแล้ว"; if(e.message==="no_key") return "ยังไม่ได้ใส่ Claude API key — ใส่ในหน้าตั้งค่า หรือใช้ปุ่ม “คัดลอกพรอมต์”"; if(e.message==="no_model") return "ยังไม่ได้เลือกโมเดลในหน้าตั้งค่า"; return "AI ทำงานไม่สำเร็จ: "+e.message; }
+async function write(){
+  const n=news.find(x=>x.id===selId); if(!n) return;
+  if(!settings.ai){ toast("ยังไม่มี API key — ใช้ “คัดลอกพรอมต์” แทนได้"); openSettings(); return; }
+  ctl=new AbortController(); $("#btnStop").hidden=false; $("#btnWrite").disabled=true;
+  const box=$("#article"); $("#wState").textContent="กำลังเขียน …";
+  try{
+    const text=await claude(buildPrompt(n),{signal:ctl.signal,onText:t=>{ box.value=t; updateCount(); }});
+    box.value=text.trim(); updateCount();
+    setState(n.id,{article:box.value,status:statusOf(n)==="posted"?"posted":"written"}); render();
+    $("#wState").textContent="เขียนเสร็จและบันทึกแล้ว — ตรวจข้อเท็จจริงกับต้นทางก่อนโพสต์";
+  }catch(e){ $("#wState").textContent=aiErr(e); }
+  finally{ $("#btnStop").hidden=true; $("#btnWrite").disabled=false; ctl=null; }
+}
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch{ const ta=document.createElement("textarea"); ta.value=t; document.body.append(ta); ta.select(); let ok=false; try{ ok=document.execCommand("copy"); }catch{} ta.remove(); return ok; } }
+async function hooks(){
+  const n=news.find(x=>x.id===selId); if(!n) return;
+  const p=`คิด "ฮุก" บรรทัดแรกของโพสต์เพจข่าวโอตาคุไทย 5 แบบ สำหรับข่าวนี้ แต่ละอันสั้น 2–8 คำ กวน ๆ ชวนคลิก ไม่มีอีโมจิ แบบเดียวกับ "หนีไป! นี่คือกับดัก!!!", "แค่เห็น ยังอายแทน!", "ไว้หลอกลูกหลาน"
+ตอบเป็น JSON array ของ string เท่านั้น
+
+ข่าว: ${n.title}
+${n.summary||""}`;
+  if(!settings.ai){ if(await copyText(p)) toast("คัดลอกพรอมต์ขอฮุกแล้ว ไปวางใน Claude ได้เลย"); return; }
+  $("#btnHooks").disabled=true; $("#hooks").innerHTML=`<span class="hint">กำลังคิดฮุก …</span>`;
+  try{
+    const t=await claude(p,{maxTokens:400}); const arr=JSON.parse(t.slice(t.indexOf("["),t.lastIndexOf("]")+1));
+    $("#hooks").innerHTML=arr.map(h=>`<button type="button" class="chip" data-hook="${esc(h)}">${esc(h)}</button>`).join("")+`<span class="hint" style="align-self:center">แตะเพื่อใช้เป็นบรรทัดแรก</span>`;
+  }catch(e){ $("#hooks").innerHTML=`<span class="hint">${esc(aiErr(e))}</span>`; }
+  finally{ $("#btnHooks").disabled=false; }
+}
+function useHook(h){ const box=$("#article"); const lines=box.value.split("\n"); if(lines.length>1&&lines[0].trim().length<=40&&lines[1].trim()==="") lines[0]=h; else lines.unshift(h,""); box.value=lines.join("\n"); updateCount(); }
+
+/* ---------- settings ---------- */
+function openSettings(){
+  $("#sRepo").value=repo(); $("#sGh").value=settings.gh||""; $("#sAi").value=settings.ai||"";
+  const sel=$("#sModel"); if(settings.model && ![...sel.options].some(o=>o.value===settings.model)) sel.add(new Option(settings.model,settings.model)); sel.value=settings.model||"";
+  $("#dSet").showModal();
+}
+async function loadModels(){
+  const key=$("#sAi").value.trim(); if(!key){ toast("ใส่ API key ก่อน"); return; }
+  const b=$("#btnModels"); b.disabled=true; b.textContent="กำลังโหลด…";
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/models?limit=100",{headers:{...aiHeaders(),"x-api-key":key}});
+    if(!r.ok) throw new Error((await r.json()).error?.message||r.status);
+    const ids=(await r.json()).data.map(m=>m.id);
+    const sel=$("#sModel"); sel.innerHTML=ids.map(i=>`<option value="${esc(i)}">${esc(i)}</option>`).join("");
+    sel.value=settings.model&&ids.includes(settings.model)?settings.model:(ids.find(i=>/sonnet/.test(i))||ids[0]);
+    toast("โหลดโมเดลแล้ว "+ids.length+" ตัว");
+  }catch(e){ toast("โหลดไม่สำเร็จ: "+e.message); }
+  finally{ b.disabled=false; b.textContent="โหลดรายชื่อโมเดล"; }
+}
+
+/* ---------- events ---------- */
+$("#feed").addEventListener("click",e=>{ const b=e.target.closest(".item"); if(!b) return; selId=b.dataset.id; render(); if(innerWidth<=920) $("#pad").scrollIntoView({behavior:"smooth",block:"start"}); });
+$("#cats").addEventListener("click",e=>{ const b=e.target.closest(".chip"); if(!b) return; filterCat=b.dataset.cat; shown=PAGE; renderCats(); render(); });
+["#q","#fStatus","#fOrigin"].forEach(s=>$(s).addEventListener("input",()=>{ shown=PAGE; render(); }));
+$("#btnMore").onclick=()=>{ shown+=PAGE; render(); };
+
+$("#btnUpdate").onclick=async()=>{
+  if(!settings.gh){ toast("ใส่ GitHub token ในหน้าตั้งค่าก่อน"); openSettings(); return; }
+  const b=$("#btnUpdate"); b.disabled=true;
+  try{ await dispatch(""); toast("สั่งอัปเดตแล้ว ใช้เวลาราว 1–2 นาที"); }catch(e){ toast(ghErr(e)); b.disabled=false; }
+};
+$("#btnToggle").onclick=async()=>{
+  if(!settings.gh){ toast("ใส่ GitHub token ในหน้าตั้งค่าก่อน"); openSettings(); return; }
+  const on=wf?.state==="active";
+  try{ await gh(`/repos/${repo()}/actions/workflows/${WF}/${on?"disable":"enable"}`,{method:"PUT"}); toast(on?"หยุดอัปเดตอัตโนมัติแล้ว":"เปิดอัปเดตอัตโนมัติแล้ว"); loadStatus(); }catch(e){ toast(ghErr(e)); }
+};
+$("#btnSaveTime").onclick=async()=>{
+  if(!settings.gh){ toast("ใส่ GitHub token ในหน้าตั้งค่าก่อน"); openSettings(); return; }
+  const [hh,mm]=$("#autoTime").value.split(":").map(Number); if(isNaN(hh)) return;
+  const utc=(hh-7+24)%24, cron=`${mm} ${utc} * * *`;
+  const label=`${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+  try{
+    const f=await gh(`/repos/${repo()}/contents/.github/workflows/${WF}?ref=main`);
+    const txt=b64dec(f.content);
+    const next=txt.replace(/- cron:\s*'[^']*'.*$/m,`- cron: '${cron}'   # ${label} Asia/Bangkok`);
+    if(next===txt){ toast("เวลาเดิมอยู่แล้ว"); return; }
+    await gh(`/repos/${repo()}/contents/.github/workflows/${WF}`,{method:"PUT",body:JSON.stringify({message:`Set daily update to ${label} (Bangkok)`,content:b64enc(next),sha:f.sha,branch:"main"})});
+    toast("ตั้งเวลาอัปเดตทุกวัน "+label+" น. แล้ว"); loadStatus();
+  }catch(e){ toast(ghErr(e)); }
+};
+
+$("#btnAdd").onclick=()=>{ $("#xState").textContent=settings.gh?"ใช้เวลาราว 1–2 นาที":"ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; $("#dAdd").showModal(); };
+$("#btnAddClose").onclick=()=>$("#dAdd").close();
+$("#btnXSend").onclick=async()=>{
+  const urls=[...new Set(($("#xUrls").value.match(/https?:\/\/(?:www\.)?(?:x|twitter)\.com\/[^\s/]+\/status\/\d+/g)||[]))];
+  if(!urls.length){ $("#xState").textContent="ไม่พบลิงก์โพสต์ X ที่ถูกต้อง"; return; }
+  if(!settings.gh){ $("#xState").textContent="ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; return; }
+  const b=$("#btnXSend"); b.disabled=true;
+  try{ await dispatch(urls.join(" ")); $("#xState").textContent=`ส่งแล้ว ${urls.length} ลิงก์ — ข่าวจะขึ้นเองเมื่อดึงเสร็จ`; $("#xUrls").value=""; }
+  catch(e){ $("#xState").textContent=ghErr(e); b.disabled=false; }
+};
+$("#mCat").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+$("#btnParse").onclick=async()=>{
+  const txt=$("#mPaste").value.trim(); if(!txt){ toast("วางข่าวก่อน"); return; }
+  if(!settings.ai){ $("#parseState").textContent="ต้องใส่ Claude API key ก่อน หรือกรอกเองด้านล่าง"; return; }
+  $("#parseState").textContent="กำลังแยกข้อมูล…";
+  try{
+    const t=await claude(`แยกข้อมูลข่าวด้านล่าง ตอบเป็น JSON object เท่านั้น: {"title":"พาดหัวภาษาไทยสั้น ชวนอ่าน","category":"${CATS.join("|")}","summary":"สรุปภาษาไทย 2-4 ประโยค","source":"ชื่อแหล่ง","url":"ลิงก์ต้นทางถ้ามี ไม่งั้น \\"\\"","images":["ลิงก์รูปถ้ามีในข้อความ"]}
+ใช้เฉพาะข้อมูลในข้อความ ห้ามแต่งเพิ่ม
+
+${txt.slice(0,30000)}`,{maxTokens:1200});
+    const o=JSON.parse(t.slice(t.indexOf("{"),t.lastIndexOf("}")+1));
+    if(o.title) $("#mTitle").value=o.title; if(CATS.includes(o.category)) $("#mCat").value=o.category;
+    if(o.summary) $("#mSummary").value=o.summary; if(o.source) $("#mSource").value=o.source;
+    if(o.url) $("#mUrl").value=o.url; if(o.images?.length) $("#mImgs").value=o.images.join(" ");
+    $("#parseState").textContent="แยกแล้ว ตรวจดูก่อนบันทึก";
+  }catch(e){ $("#parseState").textContent=aiErr(e); }
+};
+$("#fManual").addEventListener("submit",e=>{
+  e.preventDefault();
+  const title=$("#mTitle").value.trim(); if(!title) return;
+  const url=$("#mUrl").value.trim();
+  const item={id:"m"+hash(url||title+Date.now()),title,category:$("#mCat").value,source:$("#mSource").value.trim()||"เพิ่มเอง",summary:$("#mSummary").value.trim(),details:$("#mPaste").value.trim(),url,images:$("#mImgs").value.split(/\s+/).filter(u=>/^https?:\/\//.test(u)),origin:"manual",createdAt:Date.now()};
+  localItems=[item,...localItems.filter(x=>x.id!==item.id)]; ls.set("od.local",localItems);
+  selId=item.id; e.target.reset(); $("#dAdd").close(); merge(); toast("บันทึกแล้ว");
+});
+
+$("#btnSettings").onclick=openSettings;
+$("#btnSetClose").onclick=()=>$("#dSet").close();
+$("#btnModels").onclick=loadModels;
+$("#fSet").addEventListener("submit",e=>{
+  e.preventDefault();
+  settings={repo:$("#sRepo").value.trim(),gh:$("#sGh").value.trim(),ai:$("#sAi").value.trim(),model:$("#sModel").value};
+  ls.set("od.settings",settings); $("#dSet").close(); toast("บันทึกการตั้งค่าแล้ว"); loadStatus();
+});
+
+$("#btnHide").onclick=()=>{ const n=news.find(x=>x.id===selId); if(!n) return;
+  if(n.origin==="manual"){ localItems=localItems.filter(x=>x.id!==n.id); ls.set("od.local",localItems); } else setState(n.id,{hidden:true});
+  selId=null; padShownId=null; merge(); toast(n.origin==="manual"?"ลบแล้ว":"ซ่อนแล้ว"); };
+$("#btnWrite").onclick=write;
+$("#btnStop").onclick=()=>ctl?.abort();
+$("#btnPrompt").onclick=async()=>{ const n=news.find(x=>x.id===selId); if(!n) return; if(await copyText(buildPrompt(n))) $("#wState").innerHTML=`คัดลอกพรอมต์แล้ว — วางใน <a href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a> แล้วเอาบทความกลับมาวางในช่องด้านล่าง`; else toast("คัดลอกไม่ได้"); };
+$("#btnHooks").onclick=hooks;
+$("#hooks").addEventListener("click",e=>{ const b=e.target.closest("[data-hook]"); if(b) useHook(b.dataset.hook); });
+$("#article").addEventListener("input",updateCount);
+$("#btnCopy").onclick=async()=>{ toast(await copyText($("#article").value)?"คัดลอกแล้ว":"คัดลอกไม่ได้ ลองเลือกข้อความเอง"); };
+$("#btnCopyImgs").onclick=async()=>{ const n=news.find(x=>x.id===selId); if(n&&await copyText((n.images||[]).join("\n"))) toast("คัดลอกลิงก์รูปแล้ว"); };
+$("#btnSave").onclick=()=>{ const n=news.find(x=>x.id===selId); if(!n) return; const a=$("#article").value; setState(n.id,{article:a,status:statusOf(n)==="posted"?"posted":(a.trim()?"written":"new")}); render(); toast("บันทึกแล้ว"); };
+$("#btnPosted").onclick=()=>{ const n=news.find(x=>x.id===selId); if(!n) return; const posted=statusOf(n)==="posted"; const a=$("#article").value; setState(n.id,{article:a,status:posted?(a.trim()?"written":"new"):"posted",postedAt:posted?null:Date.now()}); render(); toast(posted?"ยกเลิกสถานะโพสต์":"ติ๊กว่าโพสต์แล้ว"); };
+
+/* ---------- boot ---------- */
+renderCats();
+loadNews(false);
+loadStatus();
+setInterval(()=>{ if(!polling && document.visibilityState==="visible"){ loadStatus(); } },120000);
+})();
+</script>
+</body>
+</html>

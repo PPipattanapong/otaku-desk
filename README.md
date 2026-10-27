@@ -1,2 +1,10 @@
-# otaku-desk
-Otaku news desk: anime, games, Japan, cosplay news with daily auto-update
+# Otaku Desk
+
+โต๊ะหาข่าว อนิเมะ · เกม · ญี่ปุ่น · คอสเพลย์ · VTuber แล้วเขียนบทความในสไตล์เพจ
+
+- เว็บ: GitHub Pages ของ repo นี้
+- ข่าวอัปเดตอัตโนมัติทุกวัน 10:00 น. (เวลาไทย) ด้วย GitHub Actions (`.github/workflows/update-news.yml`)
+- กด "อัปเดตข่าวตอนนี้" / ตั้งเวลา / หยุดอัตโนมัติ ได้จากหน้าเว็บ (ใส่ GitHub token ในหน้าตั้งค่า)
+- ข่าวจาก X: วางลิงก์โพสต์ในหน้า "+ เพิ่มข่าว" ระบบจะดึงข้อความ ยอดไลก์ และรูปให้
+- แก้แหล่งข่าวได้ที่ `data/sources.json`
+- ถ้าอยากให้ข่าวจากเว็บถูกแปลเป็นไทยอัตโนมัติ เพิ่ม secret `ANTHROPIC_API_KEY` ใน Settings → Secrets and variables → Actions
