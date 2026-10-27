@@ -9,6 +9,10 @@ on:
         description: 'ลิงก์โพสต์ X ที่จะดึง (คั่นด้วยเว้นวรรค)'
         required: false
         default: ''
+      items_json:
+        description: 'ข่าวแบบ JSON (จากงานอัตโนมัติ)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -30,6 +34,7 @@ jobs:
         run: node scripts/fetch-news.mjs
         env:
           X_URLS: ${{ github.event.inputs.x_urls }}
+          ITEMS_JSON: ${{ github.event.inputs.items_json }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       - name: Commit
         run: |
