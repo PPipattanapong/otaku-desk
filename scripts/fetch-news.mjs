@@ -13,9 +13,7 @@ const DEFAULT_SOURCES = [
   { name: "Automaton", type: "rss", url: "https://automaton-media.com/en/feed/" },
   { name: "SoraNews24", type: "rss", url: "https://soranews24.com/feed/" },
   { name: "Anime News Network", type: "rss", url: "https://www.animenewsnetwork.com/all/rss.xml?ann-edition=w", linkFilter: "/interest/" },
-  { name: "Dexerto Anime", type: "rss", url: "https://www.dexerto.com/anime/feed/" },
-  { name: "Reddit r/cosplay", type: "reddit", url: "https://www.reddit.com/r/cosplay/top.json?t=day&limit=12" },
-  { name: "Reddit r/anime", type: "reddit", url: "https://www.reddit.com/r/anime/top.json?t=day&limit=12" }
+  { name: "Dexerto Anime", type: "rss", url: "https://www.dexerto.com/anime/feed/" }
 ];
 
 const CATS = ["Cosplay", "VTuber", "Anime", "Game", "Manga", "Japan", "Viral"];
@@ -238,7 +236,7 @@ for (const src of sources) {
 // links sent from the site or the daily scan (X + Reddit)
 const links = (process.env.X_URLS || "").split(/[\s,]+/).filter(Boolean);
 const xUrls = [...new Set(links.filter(u => /(x|twitter)\.com\/[^/]+\/status\/\d+/.test(u)).map(normUrl))];
-const rUrls = [...new Set(links.filter(u => /reddit\.com\/r\/[^/]+\/comments\//.test(u)).map(normUrl))];
+const rUrls = []; // Reddit disabled
 let xAdded = 0, rAdded = 0;
 function addItem(it, bonus = 3) {
   const realId = idFor(it.url);
@@ -263,7 +261,7 @@ let jAdded = 0;
 try {
   const arr = JSON.parse(process.env.ITEMS_JSON || "[]");
   for (const x of Array.isArray(arr) ? arr : []) {
-    if (!x?.title || !x?.url) continue;
+    if (!x?.title || !x?.url || /reddit\.com/.test(x.url)) continue;
     const it = { title: String(x.title).slice(0, 300), url: x.url, summary: String(x.summary || ""), details: String(x.details || x.summary || ""), images: (x.images || []).filter(goodImg).slice(0, 6), source: x.source || "", origin: /reddit\.com/.test(x.url) ? "reddit" : (/(x|twitter)\.com/.test(x.url) ? "x" : "web"), publishedAt: toMs(x.publishedAt), likes: +x.likes || 0 };
     if (addItem(it)) jAdded++;
   }
@@ -277,7 +275,7 @@ for (const it of fresh.filter(f => f.origin === "web" && (f.details || "").lengt
 
 await claudeEnrich(fresh.filter(f => !/[฀-๿]/.test(f.title)));
 
-const all = [...byId.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (b.score || 0) - (a.score || 0)).slice(0, MAX_ITEMS);
+const all = [...byId.values()].filter(n => !/reddit\.com/.test(n.url || "")).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (b.score || 0) - (a.score || 0)).slice(0, MAX_ITEMS);
 await fs.mkdir("data", { recursive: true });
 await fs.writeFile(NEWS_FILE, JSON.stringify(all, null, 1));
 await fs.writeFile(META_FILE, JSON.stringify({ updatedAt: new Date().toISOString(), added: fresh.length, counts, errors, total: all.length, ai: !!process.env.ANTHROPIC_API_KEY }, null, 1));
