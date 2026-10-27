@@ -85,7 +85,7 @@ async function fromRss(src) {
 async function redditJson(url) {
   const u = new URL(url); const tries = [u.toString(), u.toString().replace("://www.reddit.com", "://old.reddit.com"), u.toString().replace("://www.reddit.com", "://api.reddit.com")];
   let last;
-  for (const t of tries) { try { return await get(t, { json: true }); } catch (e) { last = e; await sleep(500); } }
+  for (const t of tries) { try { return await get(t, { json: true }); } catch (e) { last = e; await sleep(/429/.test(e.message) ? 6000 : 1500); } }
   throw last;
 }
 async function fromReddit(src) {
@@ -216,7 +216,7 @@ for (const src of sources) {
   if (src.enabled === false) continue;
   try {
     let items = [];
-    if (src.type === "reddit") items = await fromReddit(src);
+    if (src.type === "reddit") { await sleep(5000); items = await fromReddit(src); }
     else if (src.type === "html") items = await fromHtml(src);
     else {
       try { items = await fromRss(src); } catch (e) { if (!src.htmlUrl) throw e; errors.push(`${src.name}: feed ${e.message} → ใช้หน้าเว็บแทน`); }
