@@ -26,15 +26,5 @@
   "name": "Dexerto Anime",
   "type": "rss",
   "url": "https://www.dexerto.com/anime/feed/"
- },
- {
-  "name": "Reddit r/cosplay",
-  "type": "reddit",
-  "url": "https://www.reddit.com/r/cosplay/top.json?t=day&limit=12"
- },
- {
-  "name": "Reddit r/anime",
-  "type": "reddit",
-  "url": "https://www.reddit.com/r/anime/top.json?t=day&limit=12"
  }
 ]
