@@ -2,7 +2,9 @@
  {
   "name": "SomosKudasai",
   "type": "rss",
-  "url": "https://somoskudasai.com/feed/"
+  "url": "https://somoskudasai.com/feed/",
+  "htmlUrl": "https://somoskudasai.com/",
+  "linkPattern": "somoskudasai\\.com/noticias/[a-z0-9-]{25,}/?$"
  },
  {
   "name": "Automaton",
