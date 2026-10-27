@@ -1,0 +1,42 @@
+name: Update news
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 10:00 Asia/Bangkok (03:00 UTC)
+  workflow_dispatch:
+    inputs:
+      x_urls:
+        description: 'ลิงก์โพสต์ X ที่จะดึง (คั่นด้วยเว้นวรรค)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-news
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch news
+        run: node scripts/fetch-news.mjs
+        env:
+          X_URLS: ${{ github.event.inputs.x_urls }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: Commit
+        run: |
+          git config user.name "otaku-desk-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet && exit 0
+          git commit -m "Update news $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push
