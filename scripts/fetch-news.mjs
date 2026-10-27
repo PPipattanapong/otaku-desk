@@ -106,10 +106,21 @@ function mapReddit(d, name) {
   return { title: decode(d.title), url: "https://www.reddit.com" + d.permalink, summary: (d.selftext || "").slice(0, 600), details: `${decode(d.title)}\n\n${d.selftext || ""}\n\nupvotes: ${d.ups} · comments: ${d.num_comments} · u/${d.author}`, images: [...new Set(imgs.filter(goodImg))].slice(0, 6), source: name || `Reddit r/${d.subreddit}`, origin: "reddit", publishedAt: (d.created_utc || 0) * 1000, likes: d.ups };
 }
 async function fromRedditPost(url) {
-  const clean = url.split("?")[0].replace(/\/$/, "").replace("://old.reddit.com", "://www.reddit.com");
-  const j = await redditJson(clean + ".json");
-  const d = j?.[0]?.data?.children?.[0]?.data; if (!d) return null;
-  return mapReddit(d);
+  const clean = url.split("?")[0].split("#")[0].replace(/\/$/, "").replace(/:\/\/(old|np|m|new)\.reddit\.com/, "://www.reddit.com");
+  try {
+    const j = await redditJson(clean + ".json");
+    const d = j?.[0]?.data?.children?.[0]?.data; if (d) return mapReddit(d);
+  } catch (e) { }
+  // fallback: the post's Atom feed (first entry is the post itself)
+  const xml = await get(clean + "/.rss");
+  const b = (xml.match(/<entry[\s>][\s\S]*?<\/entry>/i) || [])[0]; if (!b) return null;
+  const html = decode(tag(b, "content"));
+  const imgs = [...html.matchAll(/href="(https:\/\/i\.redd\.it\/[^"]+)"/gi)].map(m => decode(m[1]));
+  for (const m of html.matchAll(/<img[^>]+src="([^"]+)"/gi)) imgs.push(decode(m[1]));
+  const thumb = (b.match(/<media:thumbnail[^>]+url="([^"]+)"/i) || [])[1]; if (thumb) imgs.push(decode(thumb));
+  const sub = (clean.match(/\/r\/([^/]+)/) || [])[1] || "";
+  const title = strip(tag(b, "title")); const text = strip(html);
+  return { title, url: clean, summary: text.slice(0, 600), details: `${title}\n\n${text.slice(0, 4000)}\n\nโพสต์โดย ${strip(tag(b, "name"))}`, images: [...new Set(imgs.filter(goodImg))].slice(0, 6), source: `Reddit r/${sub}`, origin: "reddit", publishedAt: toMs(strip(tag(b, "published") || tag(b, "updated"))), likes: 0 };
 }
 
 /* ---------- HTML listing fallback (when a feed is blocked/empty) ---------- */
@@ -236,7 +247,7 @@ for (const src of sources) {
 // links sent from the site or the daily scan (X + Reddit)
 const links = (process.env.X_URLS || "").split(/[\s,]+/).filter(Boolean);
 const xUrls = [...new Set(links.filter(u => /(x|twitter)\.com\/[^/]+\/status\/\d+/.test(u)).map(normUrl))];
-const rUrls = []; // Reddit disabled
+const rUrls = [...new Set(links.filter(u => /reddit\.com\/r\/[^/]+\/comments\//.test(u)).map(u => u.replace(/:\/\/(old|np|m|new)\.reddit\.com/, "://www.reddit.com")).map(normUrl))];
 let xAdded = 0, rAdded = 0;
 function addItem(it, bonus = 3) {
   const realId = idFor(it.url);
@@ -261,7 +272,7 @@ let jAdded = 0;
 try {
   const arr = JSON.parse(process.env.ITEMS_JSON || "[]");
   for (const x of Array.isArray(arr) ? arr : []) {
-    if (!x?.title || !x?.url || /reddit\.com/.test(x.url)) continue;
+    if (!x?.title || !x?.url) continue;
     const it = { title: String(x.title).slice(0, 300), url: x.url, summary: String(x.summary || ""), details: String(x.details || x.summary || ""), images: (x.images || []).filter(goodImg).slice(0, 6), source: x.source || "", origin: /reddit\.com/.test(x.url) ? "reddit" : (/(x|twitter)\.com/.test(x.url) ? "x" : "web"), publishedAt: toMs(x.publishedAt), likes: +x.likes || 0 };
     if (addItem(it)) jAdded++;
   }
@@ -275,7 +286,7 @@ for (const it of fresh.filter(f => f.origin === "web" && (f.details || "").lengt
 
 await claudeEnrich(fresh.filter(f => !/[฀-๿]/.test(f.title)));
 
-const all = [...byId.values()].filter(n => !/reddit\.com/.test(n.url || "")).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (b.score || 0) - (a.score || 0)).slice(0, MAX_ITEMS);
+const all = [...byId.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (b.score || 0) - (a.score || 0)).slice(0, MAX_ITEMS);
 await fs.mkdir("data", { recursive: true });
 await fs.writeFile(NEWS_FILE, JSON.stringify(all, null, 1));
 await fs.writeFile(META_FILE, JSON.stringify({ updatedAt: new Date().toISOString(), added: fresh.length, counts, errors, total: all.length, ai: !!process.env.ANTHROPIC_API_KEY }, null, 1));
