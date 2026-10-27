@@ -1,7 +1,18 @@
 {
- "updatedAt": "2026-10-27T08:23:42.063Z",
- "added": 8,
- "counts": {},
- "errors": [],
- "total": 8
+ "updatedAt": "2026-10-27T08:43:00.369Z",
+ "added": 88,
+ "counts": {
+  "SomosKudasai": 0,
+  "Automaton": 28,
+  "SoraNews24": 20,
+  "Anime News Network": 1,
+  "Dexerto Anime": 30,
+  "X": 9
+ },
+ "errors": [
+  "Reddit r/cosplay: HTTP 403",
+  "Reddit r/anime: HTTP 403"
+ ],
+ "total": 96,
+ "ai": false
 }
