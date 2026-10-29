@@ -81,6 +81,10 @@ main.desk{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18p
 .item h3{font-size:15px;line-height:1.45;margin:0 0 4px;font-weight:600;text-wrap:balance;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)}
 .tag{font-family:var(--f-display);font-weight:600;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;padding:1px 7px;border-radius:4px;background:var(--soft);color:var(--accent)}
+.brand h1 a{color:inherit;text-decoration:none}
+.mtl{font-family:var(--f-mono);font-size:10.5px;font-weight:600;padding:0 5px;border-radius:4px;background:var(--warn-soft);color:var(--warn);margin-right:6px;vertical-align:2px;letter-spacing:.04em}
+.otitle{font-size:12.5px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;margin:-2px 0 4px}
+.mtlbox{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;background:var(--bg)}
 .pill{font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line)}
 .pill.new{color:var(--warn);background:var(--warn-soft);border-color:transparent}
 .pill.written{color:var(--accent);background:var(--soft);border-color:transparent}
@@ -138,7 +142,7 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
 <body>
 <header class="top">
   <div class="wrap">
-    <div class="brand"><h1>Otaku <b>Desk</b></h1><small>หาข่าว อนิเมะ · เกม · ญี่ปุ่น · คอสเพลย์ → เขียนบทความสไตล์เพจ</small></div>
+    <div class="brand"><h1><a href="./" id="brandLink" title="รีเฟรชหน้า">Otaku <b>Desk</b></a></h1><small>หาข่าว อนิเมะ · เกม · ญี่ปุ่น · คอสเพลย์ → เขียนบทความสไตล์เพจ</small></div>
     <div class="stats" aria-label="สถิติ">
       <div class="stat">ทั้งหมด <b id="sAll">0</b></div>
       <div class="stat">รอเขียน <b id="sNew">0</b></div>
@@ -188,6 +192,7 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
       <div class="label" style="margin-top:8px">สรุปข่าว</div>
       <p class="brief" id="pSummary"></p>
       <p class="orig" id="pOrig" hidden></p>
+      <div class="mtlbox" id="pMtl" hidden></div>
       <details class="raw"><summary>ข้อมูลดิบ / เนื้อหาต้นทาง</summary><pre id="pRaw"></pre></details>
       <div class="row" style="margin-top:10px">
         <a class="btn sm" id="pLink" target="_blank" rel="noopener">เปิดลิงก์ต้นทาง ↗</a>
@@ -224,9 +229,9 @@ code{font-family:var(--f-mono);font-size:12.5px;background:var(--bg);padding:1px
   <div class="dlg">
     <h2>เพิ่มข่าว</h2>
     <div class="box">
-      <h3>จากลิงก์โพสต์ X / Reddit</h3>
-      <div class="field">วางลิงก์โพสต์ได้หลายลิงก์ (คนละบรรทัด) ระบบจะดึงข้อความ ยอดไลก์ เวลาโพสต์ และรูปให้
-        <textarea id="xUrls" placeholder="https://x.com/username/status/1234567890"></textarea>
+      <h3>จากลิงก์ (X / Reddit / เว็บข่าวไหนก็ได้)</h3>
+      <div class="field">วางลิงก์ได้หลายลิงก์ (คนละบรรทัด) ทั้งโพสต์ X, Reddit หรือหน้าข่าวจากเว็บไหนก็ได้ ระบบจะดึงหัวข้อ ข้อความ ยอดไลก์ เวลาโพสต์ และรูปให้ (อันไหนไม่มีข้อมูลให้ดึงก็ข้ามไป)
+        <textarea id="xUrls" placeholder="https://x.com/username/status/1234567890&#10;https://www.reddit.com/r/…/comments/…&#10;https://เว็บข่าว.com/…"></textarea>
       </div>
       <details><summary class="hint" style="cursor:pointer">ข้อมูลข่าวแบบ JSON (สำหรับงานอัตโนมัติ)</summary>
         <div class="field" style="margin-top:6px"><textarea id="itemsJson" placeholder='[{"title":"…","url":"https://…","summary":"…","images":["https://…"],"source":"ชื่อแหล่ง","likes":1234,"publishedAt":"2026-10-27T10:00:00Z"}]'></textarea></div>
@@ -367,6 +372,16 @@ function toMs(v){ if(!v) return 0; if(typeof v==="number") return v; const t=Dat
 function fmtShort(v){ const ms=toMs(v); if(!ms) return "—"; try{ return new Date(ms).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Asia/Bangkok"})+" น."; }catch{ return ""; } }
 const postedAt = n => toMs(n.publishedAt);
 const fetchedAt = n => toMs(n.fetchedAt||n.createdAt);
+const isThai = s => /[฀-๿]/.test(s||"");
+const mtlOf = n => ({t:n.mtlTitle||st(n.id).mtlTitle||"", s:n.mtlSummary||st(n.id).mtlSummary||""});
+function listTitle(n){ const m=mtlOf(n); if(isThai(n.title)||!m.t) return `<h3>${esc(n.title)}</h3>`; return `<h3><span class="mtl" title="แปลคร่าวๆ ด้วยเครื่อง">MTL</span>${esc(m.t)}</h3><div class="otitle">${esc(n.title)}</div>`; }
+async function gtx(t){ const r=await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=th&dt=t",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:"q="+encodeURIComponent(String(t).slice(0,1500))}); if(!r.ok) throw new Error(r.status); const j=await r.json(); return (j[0]||[]).map(s=>s[0]||"").join(""); }
+function renderMtl(n){ const box=$("#pMtl"); const m=mtlOf(n);
+  if(isThai(n.title)){ box.hidden=true; return; }
+  box.hidden=false;
+  box.innerHTML = m.t ? `<div class="label">แปลคร่าวๆ <span class="mtl">MTL</span></div><p style="margin:4px 0;font-weight:600">${esc(m.t)}</p>${m.s?`<p class="brief" style="margin:0">${esc(m.s)}</p>`:""}<p class="hint" style="margin:6px 0 0">แปลอัตโนมัติด้วย Google Translate ใช้ดูคร่าวๆ เท่านั้น</p>`
+    : `<div class="row"><button class="btn sm" type="button" id="btnMtl">แปลคร่าวๆ (ฟรี)</button><span class="hint">ข่าวนี้ยังไม่ได้แปล</span></div>`;
+}
 const originOf = n => n.origin==="x"?"x":(n.origin||"web");
 const STATUS_TH={new:"รอเขียน",written:"เขียนแล้ว",posted:"โพสต์แล้ว"};
 const st = id => state[id] || {};
@@ -411,7 +426,7 @@ function render(){
   $("#sWritten").textContent=news.filter(n=>statusOf(n)==="written").length;
   $("#sPosted").textContent=news.filter(n=>statusOf(n)==="posted").length;
   const sort=$("#fSort").value;
-  const list=news.filter(n=>(!filterCat||n.category===filterCat)&&(!fs||statusOf(n)===fs)&&(!fo||originOf(n)===fo)&&(!q||`${n.title} ${n.summary} ${n.source} ${n.titleOriginal||""}`.toLowerCase().includes(q)));
+  const list=news.filter(n=>(!filterCat||n.category===filterCat)&&(!fs||statusOf(n)===fs)&&(!fo||originOf(n)===fo)&&(!q||`${n.title} ${n.summary} ${n.source} ${n.titleOriginal||""} ${mtlOf(n).t}`.toLowerCase().includes(q)));
   const key = sort==="posted" ? (n=>postedAt(n)||fetchedAt(n)) : sort==="likes" ? (n=>+n.likes||0) : (n=>fetchedAt(n));
   list.sort((a,b)=>key(b)-key(a) || fetchedAt(b)-fetchedAt(a));
   const feed=$("#feed");
@@ -419,7 +434,7 @@ function render(){
   else if(!list.length) feed.innerHTML=`<div class="empty">ไม่มีข่าวที่ตรงกับตัวกรอง</div>`;
   else feed.innerHTML=list.slice(0,shown).map(n=>{ const s=statusOf(n); return `<button type="button" class="item" data-id="${n.id}" aria-current="${n.id===selId}">
       ${thumbHtml(n)}
-      <span style="min-width:0"><h3>${esc(n.title)}</h3><span class="meta"><span class="tag">${esc(n.category||"Viral")}</span><span class="pill ${s}">${STATUS_TH[s]}</span><span>${esc(n.source||"")}</span>${n.likes?`<span>· ♥ ${Number(n.likes).toLocaleString()}</span>`:""}</span><span class="meta when" style="margin-top:2px">${postedAt(n)?`<span title="เวลาที่ต้นทางโพสต์">โพสต์ ${fmtShort(postedAt(n))}</span><span>·</span>`:""}<span title="เวลาที่ระบบดึงมา">ดึงมา ${fmtShort(fetchedAt(n))}</span></span></span>
+      <span style="min-width:0">${listTitle(n)}<span class="meta"><span class="tag">${esc(n.category||"Viral")}</span><span class="pill ${s}">${STATUS_TH[s]}</span><span>${esc(n.source||"")}</span>${n.likes?`<span>· ♥ ${Number(n.likes).toLocaleString()}</span>`:""}</span><span class="meta when" style="margin-top:2px">${postedAt(n)?`<span title="เวลาที่ต้นทางโพสต์">โพสต์ ${fmtShort(postedAt(n))}</span><span>·</span>`:""}<span title="เวลาที่ระบบดึงมา">ดึงมา ${fmtShort(fetchedAt(n))}</span></span></span>
     </button>`; }).join("");
   $("#moreWrap").hidden=list.length<=shown;
   renderPad();
@@ -437,6 +452,7 @@ function renderPad(){
   $("#pTimes").innerHTML=`<span>โพสต์เมื่อ <b>${postedAt(n)?esc(fmtTime(postedAt(n))):"ไม่ทราบ"}</b>${postedAt(n)?` (${ago(postedAt(n))})`:""}</span><span>ดึงมาเมื่อ <b>${esc(fmtTime(fetchedAt(n)))}</b> (${ago(fetchedAt(n))})</span>`;
   $("#pSummary").textContent=n.summary||"—";
   const o=$("#pOrig"); o.hidden=!n.titleOriginal; o.textContent=n.titleOriginal?("ต้นฉบับ: "+n.titleOriginal):"";
+  renderMtl(n);
   $("#pRaw").textContent=n.details||"(ไม่มีเนื้อหาเต็ม)";
   const imgs=n.images||[];
   const g=$("#pImgs"); g.className="gallery"+(imgs.length===1?" one":"");
@@ -529,7 +545,7 @@ function startPolling(){
 /* ---------- AI ---------- */
 function brief(n){
   return `หัวข้อ: ${n.title}${n.titleOriginal?`\nหัวข้อต้นฉบับ: ${n.titleOriginal}`:""}
-หมวด: ${n.category}
+${mtlOf(n).t?`คำแปลคร่าวๆ (MTL): ${mtlOf(n).t}\n${mtlOf(n).s?`สรุปแปลคร่าวๆ: ${mtlOf(n).s}\n`:""}`:""}หมวด: ${n.category}
 แหล่งที่มา: ${n.source||"-"}
 ลิงก์: ${n.url||"-"}
 ${postedAt(n)?`โพสต์เมื่อ: ${fmtTime(postedAt(n))} (เวลาไทย)\n`:""}${n.likes?`ยอดไลก์: ${n.likes}\n`:""}${(n.images||[]).length?`มีรูปประกอบ ${n.images.length} รูป\n`:""}สรุป: ${n.summary||"-"}
@@ -631,6 +647,10 @@ $("#feed").addEventListener("click",e=>{ const b=e.target.closest(".item"); if(!
 $("#cats").addEventListener("click",e=>{ const b=e.target.closest(".chip"); if(!b) return; filterCat=b.dataset.cat; shown=PAGE; renderCats(); render(); });
 ["#q","#fStatus","#fOrigin","#fSort"].forEach(s=>$(s).addEventListener("input",()=>{ shown=PAGE; render(); }));
 $("#btnMore").onclick=()=>{ shown+=PAGE; render(); };
+$("#brandLink").onclick=e=>{ e.preventDefault(); location.reload(); };
+$("#pMtl").addEventListener("click",async e=>{ const b=e.target.closest("#btnMtl"); if(!b) return; const n=news.find(x=>x.id===selId); if(!n) return; b.disabled=true; b.textContent="กำลังแปล…";
+  try{ const t=await gtx(n.title); const s=n.summary?await gtx(n.summary):""; setState(n.id,{mtlTitle:t,mtlSummary:s}); render(); }
+  catch{ toast("แปลไม่สำเร็จ ลองใหม่อีกครั้ง"); b.disabled=false; b.textContent="แปลคร่าวๆ (ฟรี)"; } });
 
 $("#btnUpdate").onclick=async()=>{
   if(!settings.gh){ toast("ใส่ GitHub token ในหน้าตั้งค่าก่อน"); openSettings(); return; }
@@ -660,14 +680,14 @@ $("#btnSaveTime").onclick=async()=>{
 $("#btnAdd").onclick=()=>{ $("#xState").textContent=settings.gh?"ใช้เวลาราว 1–2 นาที":"ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; $("#dAdd").showModal(); };
 $("#btnAddClose").onclick=()=>$("#dAdd").close();
 $("#btnXSend").onclick=async()=>{
-  const urls=[...new Set(($("#xUrls").value.match(/https?:\/\/(?:www\.|old\.|new\.|m\.|np\.)?(?:(?:x|twitter)\.com\/[^\s/]+\/status\/\d+|reddit\.com\/r\/[^\s/]+\/comments\/[^\s]+)/g)||[]).map(u=>u.replace(/[)\]>,.]+$/,"")))];
+  const urls=[...new Set(($("#xUrls").value.match(/https?:\/\/[^\s<>"'`]+/g)||[]).map(u=>u.replace(/[)\]>,.]+$/,"")))];
   let items="", nItems=0;
   const raw=$("#itemsJson").value.trim();
   if(raw){
     try{ const arr=JSON.parse(raw); if(!Array.isArray(arr)) throw 0; const slim=arr.filter(x=>x&&x.title&&x.url).slice(0,40).map(x=>({title:String(x.title).slice(0,200),url:x.url,summary:String(x.summary||"").slice(0,500),images:(x.images||[]).slice(0,4),source:x.source||"",likes:x.likes||0,publishedAt:x.publishedAt||""})); items=JSON.stringify(slim); while(items.length>60000&&slim.length){ slim.pop(); items=JSON.stringify(slim); } nItems=slim.length; }
     catch{ $("#xState").textContent="ข้อมูล JSON ไม่ถูกต้อง"; return; }
   }
-  if(!urls.length && !nItems){ $("#xState").textContent="ไม่พบลิงก์โพสต์ X / Reddit ที่ถูกต้อง"; return; }
+  if(!urls.length && !nItems){ $("#xState").textContent="ไม่พบลิงก์ที่ถูกต้อง (ต้องขึ้นต้นด้วย https://)"; return; }
   if(!settings.gh){ $("#xState").textContent="ต้องตั้ง GitHub token ในหน้าตั้งค่าก่อน"; return; }
   const b=$("#btnXSend"); b.disabled=true;
   try{ await dispatch(urls.join(" "), items); $("#xState").textContent=`ส่งแล้ว ${urls.length} ลิงก์${nItems?` + ${nItems} ข่าวจาก JSON`:""} — ข่าวจะขึ้นเองเมื่อดึงเสร็จ`; $("#xUrls").value=""; $("#itemsJson").value=""; }
