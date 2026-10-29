@@ -56,7 +56,9 @@ async function get(url, { json = false, timeout = 20000 } = {}) {
     return json ? await r.json() : await r.text();
   } finally { clearTimeout(t); }
 }
-function goodImg(u) { return u && /^https?:\/\//.test(u) && !/\.(html?|php)(\?|$)/i.test(u) && !/gravatar|emoji|pixel|1x1|spacer|feedburner|logo\.(png|svg)/i.test(u); }
+// small sidebar/related-post thumbnails and site icons are not story images
+function tinyImg(u) { return /[?&,\/](?:w|width|h|height)=(?:[1-9]\d?|1\d\d)(?:[,&\/]|$)|\/thumbnails\/max[1-3]\d\dx|\/system\/|bookmark|favicon|\/(?:icons?|logos?|avatars?|emoji)\/|(?:^|[-_\/])(?:icon|logo|avatar|badge|sprite)s?[-_]?\d*\.(?:png|svg|gif|ico|webp)|placeholder|blank\.gif/i.test(u); }
+function goodImg(u) { return u && /^https?:\/\//.test(u) && !/\.(html?|php)(\?|$)/i.test(u) && !/gravatar|pixel|1x1|spacer|feedburner/i.test(u) && !tinyImg(u); }
 
 /* ---------- RSS ---------- */
 async function fromRss(src) {
@@ -177,13 +179,15 @@ async function ogFill(item) {
   const html = await get(item.url, { timeout: 15000 });
   const meta = p => { const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${p}["'][^>]*content=["']([^"']+)["']`, "i")) || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${p}["']`, "i")); return m ? decode(m[1]) : ""; };
   const imgs = [meta("og:image"), meta("twitter:image"), meta("og:image:secure_url")].map(u => absUrl(u, item.url)).filter(goodImg);
-  const body = (html.match(/<article[\s\S]*?<\/article>/i) || [html])[0];
+  // main story body = the longest <article>; no <article> -> only use og:image (avoids sidebar images)
+  const arts = html.match(/<article[\s\S]*?<\/article>/gi) || [];
+  const body = arts.sort((a, b) => b.length - a.length)[0] || "";
   for (const m of body.matchAll(/<img[^>]+(?:data-src|src)="([^"]+)"/gi)) { const u = absUrl(m[1], item.url); if (goodImg(u) && !/avatar|icon|logo|ads?\//i.test(u)) imgs.push(u); if (imgs.length > 8) break; }
   item.images = [...new Set([...(item.images || []), ...imgs])].slice(0, 6);
   if (!item.summary) item.summary = meta("og:description") || meta("description");
   if (!item.title) item.title = meta("og:title") || meta("twitter:title") || strip((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "");
   if (!item.publishedAt) item.publishedAt = toMs(meta("article:published_time") || meta("og:published_time") || (html.match(/<time[^>]+datetime="([^"]+)"/i) || [])[1]);
-  if (!item.details || item.details.length < 400) { const txt = strip(body).slice(0, 8000); if (txt.length > (item.details || "").length) item.details = txt; }
+  if (!item.details || item.details.length < 400) { const txt = strip(body || (html.match(/<main[\s\S]*?<\/main>/i) || [""])[0]).slice(0, 8000); if (txt.length > (item.details || "").length) item.details = txt; }
 }
 
 /* ---------- optional: Claude translates / sorts new items ---------- */
@@ -304,6 +308,18 @@ try {
 counts["X"] = xAdded; if (rUrls.length || rAdded) counts["Reddit links"] = rAdded; if (jAdded) counts["JSON"] = jAdded; if (wAdded) counts["ลิงก์เว็บ"] = wAdded;
 
 // images + fuller text for anything still missing them (new first, then a few older)
+// drop images that are really page furniture: too small, or the same picture on 3+ different stories
+function purgeImages() {
+  const seen = {};
+  for (const n of byId.values()) for (const u of new Set(n.images || [])) seen[u] = (seen[u] || 0) + 1;
+  for (const n of byId.values()) {
+    if (!n.images || !n.images.length) continue;
+    const before = n.images.length;
+    n.images = n.images.filter(u => goodImg(u) && (seen[u] < 3 || n.origin === "x"));
+    if (before && !n.images.length && n.origin !== "x") delete n.imageTried; // let the next pass look for a proper image
+  }
+}
+purgeImages();
 const needImg = [...byId.values()].filter(n => !(n.images || []).length && !n.imageTried).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 45);
 for (const it of needImg) { try { await ogFill(it); } catch (e) { } it.imageTried = true; await sleep(250); }
 for (const it of fresh.filter(f => f.origin === "web" && (f.details || "").length < 400 && !needImg.includes(f)).slice(0, 25)) { try { await ogFill(it); } catch { } await sleep(250); }
@@ -312,13 +328,14 @@ await claudeEnrich(fresh.filter(f => !/[฀-๿]/.test(f.title)));
 
 // rough MTL for anything not already in Thai (marked mtl: true)
 let mtlDone = 0, mtlFail = 0;
-const needMtl = [...byId.values()].filter(n => !isThai(n.title) && !n.mtlTitle).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 150);
+const needMtl = [...byId.values()].filter(n => !isThai(n.title) && !n.mtlTitle).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 120);
 for (const n of needMtl) {
   if (mtlFail >= 3) { errors.push("MTL: แปลไม่ได้ชั่วคราว จะลองใหม่รอบหน้า"); break; }
-  try { n.mtlTitle = await mtl(n.title); const sm = (n.summary || "").slice(0, 1500); n.mtlSummary = sm ? await mtl(sm) : ""; n.mtl = true; mtlDone++; mtlFail = 0; await sleep(250); }
-  catch (e) { mtlFail++; await sleep(1500); }
+  try { n.mtlTitle = await mtl(n.title); const sm = (n.summary || "").slice(0, 1500); n.mtlSummary = sm ? await mtl(sm) : ""; n.mtl = true; mtlDone++; mtlFail = 0; await sleep(700); }
+  catch (e) { mtlFail++; await sleep(5000); }
 }
 if (mtlDone) counts["MTL"] = mtlDone;
+purgeImages();
 const all = [...byId.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (b.score || 0) - (a.score || 0)).slice(0, MAX_ITEMS);
 await fs.mkdir("data", { recursive: true });
 await fs.writeFile(NEWS_FILE, JSON.stringify(all, null, 1));
