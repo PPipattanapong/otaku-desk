@@ -1,15 +1,15 @@
 {
- "updatedAt": "2026-10-28T09:06:59.997Z",
- "added": 2,
+ "updatedAt": "2026-10-29T03:14:06.472Z",
+ "added": 24,
  "counts": {
   "SomosKudasai": 0,
-  "Automaton": 1,
-  "SoraNews24": 1,
-  "Anime News Network": 0,
-  "Dexerto Anime": 0,
-  "X": 0
+  "Automaton": 7,
+  "SoraNews24": 3,
+  "Anime News Network": 2,
+  "Dexerto Anime": 1,
+  "X": 11
  },
  "errors": [],
- "total": 143,
+ "total": 167,
  "ai": false
 }
