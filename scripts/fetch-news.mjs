@@ -181,6 +181,7 @@ async function ogFill(item) {
   for (const m of body.matchAll(/<img[^>]+(?:data-src|src)="([^"]+)"/gi)) { const u = absUrl(m[1], item.url); if (goodImg(u) && !/avatar|icon|logo|ads?\//i.test(u)) imgs.push(u); if (imgs.length > 8) break; }
   item.images = [...new Set([...(item.images || []), ...imgs])].slice(0, 6);
   if (!item.summary) item.summary = meta("og:description") || meta("description");
+  if (!item.title) item.title = meta("og:title") || meta("twitter:title") || strip((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "");
   if (!item.publishedAt) item.publishedAt = toMs(meta("article:published_time") || meta("og:published_time") || (html.match(/<time[^>]+datetime="([^"]+)"/i) || [])[1]);
   if (!item.details || item.details.length < 400) { const txt = strip(body).slice(0, 8000); if (txt.length > (item.details || "").length) item.details = txt; }
 }
@@ -212,6 +213,18 @@ ${list}`;
       for (const a of arr) { const it = batch[a.i]; if (!it) continue; if (a.title_th) { it.titleOriginal = it.title; it.title = a.title_th; } if (a.summary_th) { it.summaryOriginal = it.summary; it.summary = a.summary_th; } if (CATS.includes(a.category)) it.category = a.category; if (typeof a.fit === "number") it.fit = a.fit; }
     } catch (e) { console.log("claude enrich failed:", e.message); }
   }
+}
+
+/* ---------- free rough translation (MTL, Google Translate web endpoint, no API key) ---------- */
+const isThai = s => /[฀-๿]/.test(s || "");
+async function mtl(text) {
+  text = String(text || "").trim(); if (!text) return "";
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=th&dt=t", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8", "user-agent": UA }, body: "q=" + encodeURIComponent(text), signal: ctl.signal });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json(); return (j?.[0] || []).map(s => s?.[0] || "").join("").trim();
+  } finally { clearTimeout(t); }
 }
 
 /* ---------- main ---------- */
@@ -267,6 +280,17 @@ for (const u of rUrls) {
   try { const it = await fromRedditPost(u); await sleep(400); if (it && addItem(it)) rAdded++; }
   catch (e) { errors.push(`Reddit ${u}: ${e.message} (ส่งข้อมูลแบบ JSON แทนได้)`); }
 }
+// any other website link: read title / text / images / time from the page (skip what isn't there)
+const wUrls = [...new Set(links.filter(u => /^https?:\/\//.test(u) && !/(x|twitter)\.com\/[^/]+\/status\/\d+/.test(u) && !/reddit\.com\/r\/[^/]+\/comments\//.test(u)).map(normUrl))];
+let wAdded = 0;
+for (const u of wUrls) {
+  try {
+    const it = { title: "", url: u, summary: "", details: "", images: [], source: new URL(u).hostname.replace(/^www\./, ""), origin: "web", publishedAt: 0 };
+    await ogFill(it); it.imageTried = true; await sleep(300);
+    if (!it.title) { errors.push(`${u}: อ่านหน้าเว็บไม่ได้`); continue; }
+    if (addItem(it)) wAdded++;
+  } catch (e) { errors.push(`${u}: ${e.message}`); }
+}
 // pre-scraped items (e.g. Reddit read in the logged-in browser by the daily scan)
 let jAdded = 0;
 try {
@@ -277,7 +301,7 @@ try {
     if (addItem(it)) jAdded++;
   }
 } catch (e) { errors.push("ITEMS_JSON: " + e.message); }
-counts["X"] = xAdded; if (rUrls.length || rAdded) counts["Reddit links"] = rAdded; if (jAdded) counts["JSON"] = jAdded;
+counts["X"] = xAdded; if (rUrls.length || rAdded) counts["Reddit links"] = rAdded; if (jAdded) counts["JSON"] = jAdded; if (wAdded) counts["ลิงก์เว็บ"] = wAdded;
 
 // images + fuller text for anything still missing them (new first, then a few older)
 const needImg = [...byId.values()].filter(n => !(n.images || []).length && !n.imageTried).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 45);
@@ -286,6 +310,15 @@ for (const it of fresh.filter(f => f.origin === "web" && (f.details || "").lengt
 
 await claudeEnrich(fresh.filter(f => !/[฀-๿]/.test(f.title)));
 
+// rough MTL for anything not already in Thai (marked mtl: true)
+let mtlDone = 0, mtlFail = 0;
+const needMtl = [...byId.values()].filter(n => !isThai(n.title) && !n.mtlTitle).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 150);
+for (const n of needMtl) {
+  if (mtlFail >= 3) { errors.push("MTL: แปลไม่ได้ชั่วคราว จะลองใหม่รอบหน้า"); break; }
+  try { n.mtlTitle = await mtl(n.title); const sm = (n.summary || "").slice(0, 1500); n.mtlSummary = sm ? await mtl(sm) : ""; n.mtl = true; mtlDone++; mtlFail = 0; await sleep(250); }
+  catch (e) { mtlFail++; await sleep(1500); }
+}
+if (mtlDone) counts["MTL"] = mtlDone;
 const all = [...byId.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0) || (b.score || 0) - (a.score || 0)).slice(0, MAX_ITEMS);
 await fs.mkdir("data", { recursive: true });
 await fs.writeFile(NEWS_FILE, JSON.stringify(all, null, 1));
