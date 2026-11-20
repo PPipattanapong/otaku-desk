@@ -1,13 +1,13 @@
 {
- "updatedAt": "2026-11-20T05:56:33.215Z",
- "added": 29,
+ "updatedAt": "2026-11-20T10:42:06.580Z",
+ "added": 10,
  "counts": {
-  "SomosKudasai": 0,
-  "Automaton": 8,
-  "SoraNews24": 6,
-  "Anime News Network": 2,
-  "Dexerto Anime": 0,
-  "X": 13
+  "SomosKudasai": 8,
+  "Automaton": 0,
+  "SoraNews24": 0,
+  "Anime News Network": 0,
+  "Dexerto Anime": 2,
+  "X": 0
  },
  "errors": [
   "MTL: แปลไม่ได้ชั่วคราว จะลองใหม่รอบหน้า"
